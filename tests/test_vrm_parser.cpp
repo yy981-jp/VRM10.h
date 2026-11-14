@@ -457,6 +457,28 @@ void testMToonAndHdrParsing() {
 
 
 
+
+void testMaterialsEmissiveStrength() {
+	auto defaultStrength = vrm10::parseMaterialsEmissiveStrength(nlohmann::json::object());
+	check(defaultStrength.hasValue(), "KHR_materials_emissive_strength may omit emissiveStrength");
+	if (defaultStrength) {
+		check(defaultStrength.value().emissiveStrength == 1.0f, "KHR emissive strength should default to one");
+	}
+
+	auto explicitStrength = vrm10::parseMaterialsEmissiveStrength(nlohmann::json::parse(R"json(
+		{"emissiveStrength": 3.5}
+	)json"));
+	check(explicitStrength.hasValue(), "explicit KHR emissive strength should parse");
+	if (explicitStrength) {
+		check(explicitStrength.value().emissiveStrength == 3.5f, "KHR emissive strength should be preserved");
+	}
+
+	auto negativeStrength = vrm10::parseMaterialsEmissiveStrength(nlohmann::json::parse(R"json(
+		{"emissiveStrength": -0.1}
+	)json"));
+	check(!negativeStrength, "negative KHR emissive strength should be rejected");
+}
+
 void testExpressionSemanticParsing() {
 	auto invalidWeight = validVrmJson();
 	invalidWeight["expressions"] = nlohmann::json::parse(R"json(
@@ -639,6 +661,7 @@ int main() {
 	testNodeConstraintParsingAndValidation();
 	testSpringBoneNestedExtensions();
 	testMToonAndHdrParsing();
+	testMaterialsEmissiveStrength();
 	if (failures != 0) {
 		std::cerr << failures << " test(s) failed.\n";
 		return EXIT_FAILURE;
