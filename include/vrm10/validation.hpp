@@ -50,6 +50,8 @@ struct ValidationContext {
 	std::size_t imageCount{};
 	std::vector<std::optional<NodeIndex>> nodeParents;
 	std::size_t textureCount{};
+	// Alpha mode of the glTF material being validated alongside MToon.
+	GltfAlphaMode materialAlphaMode{GltfAlphaMode::Opaque};
 	// One entry per node when provided. nullopt means the node has no mesh.
 	std::vector<std::optional<std::size_t>> nodeMorphTargetCounts;
 };
@@ -507,6 +509,21 @@ inline ValidationReport validate(const MaterialsMToon& mtoon, const ValidationCo
 	checkTexture("/uvAnimationMaskTexture", mtoon.uvAnimationMaskTexture);
 	if (mtoon.shadingShiftTexture) {
 		checkTexture("/shadingShiftTexture", mtoon.shadingShiftTexture->texture);
+	}
+
+	const bool validRenderQueueOffset =
+		context.materialAlphaMode == GltfAlphaMode::Blend
+			? (mtoon.transparentWithZWrite
+				? mtoon.renderQueueOffsetNumber >= 0
+				: mtoon.renderQueueOffsetNumber <= 0)
+			: mtoon.renderQueueOffsetNumber == 0;
+	if (!validRenderQueueOffset) {
+		report.issues.push_back({
+			ValidationSeverity::Error,
+			"mtoon-render-queue-offset-invalid-for-alpha-mode",
+			"/renderQueueOffsetNumber",
+			"Render queue offset must be zero for OPAQUE/MASK, non-negative for BLEND with transparentWithZWrite, and non-positive for BLEND without it."
+		});
 	}
 	return report;
 }
