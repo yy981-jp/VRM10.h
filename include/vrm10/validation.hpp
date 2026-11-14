@@ -6,6 +6,7 @@
 #include <vrm10/parser/spring_bone.hpp>
 #include <vrm10/parser/vrm.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -533,11 +534,20 @@ inline ValidationReport validate(
 	std::size_t nodeCount
 ) {
 	ValidationReport report;
+	if (constraints.size() != nodeCount) {
+		report.issues.push_back({
+			ValidationSeverity::Error,
+			"constraint-array-size-mismatch",
+			"/nodes",
+			"The node-indexed constraint array must contain exactly one entry per glTF node."
+		});
+	}
+	const std::size_t availableNodes = std::min(constraints.size(), nodeCount);
 	auto sourceOf = [](const NodeConstraint& constraint) -> NodeIndex {
 		return std::visit([](const auto& value) { return value.source; }, constraint.constraint);
 	};
 
-	for (std::size_t destination = 0; destination < constraints.size(); ++destination) {
+	for (std::size_t destination = 0; destination < availableNodes; ++destination) {
 		if (!constraints[destination]) continue;
 		const NodeIndex source = sourceOf(*constraints[destination]);
 		const std::string path = detail::childPath(
@@ -562,23 +572,23 @@ inline ValidationReport validate(
 		}
 	}
 
-	std::vector<std::uint8_t> state(constraints.size(), 0);
-	for (std::size_t start = 0; start < constraints.size(); ++start) {
+	std::vector<std::uint8_t> state(availableNodes, 0);
+	for (std::size_t start = 0; start < availableNodes; ++start) {
 		if (!constraints[start] || state[start] != 0) continue;
 		std::vector<std::size_t> path;
 		std::size_t current = start;
-		while (current < constraints.size() && constraints[current] && state[current] == 0) {
+		while (current < availableNodes && constraints[current] && state[current] == 0) {
 			state[current] = 1;
 			path.push_back(current);
 			const NodeIndex source = sourceOf(*constraints[current]);
-			if (source.value >= nodeCount || source.value >= constraints.size()) {
-				current = constraints.size();
+			if (source.value >= nodeCount || source.value >= availableNodes) {
+				current = availableNodes;
 				break;
 			}
 			current = source.value;
 			if (!constraints[current]) break;
 		}
-		if (current < constraints.size() && constraints[current] && state[current] == 1) {
+		if (current < availableNodes && constraints[current] && state[current] == 1) {
 			report.issues.push_back({
 				ValidationSeverity::Error,
 				"constraint-circular-dependency",
