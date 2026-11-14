@@ -89,11 +89,11 @@ if (report.hasErrors()) {
 - [x] Basic cross-reference validation for VRMC_vrm and VRMC_springBone
 - [x] Optional TinyGLTF-to-JSON utility
 - [x] VRMC_springBone
-- [ ] VRMC_node_constraint
-- [ ] VRMC_materials_mtoon
-- [ ] VRMC_springBone_extended_collider
-- [ ] VRMC_springBone_limit
-- [ ] VRMC_materials_hdr_emissiveMultiplier
+- [x] VRMC_node_constraint
+- [x] VRMC_materials_mtoon
+- [x] VRMC_springBone_extended_collider
+- [x] VRMC_springBone_limit
+- [x] VRMC_materials_hdr_emissiveMultiplier
 - [ ] Full schema and semantic validation coverage
 
 The SpringBone parser is available independently through `parseSpringBone`:
@@ -111,7 +111,11 @@ const vrm10::SpringBone& data = springBone.value();
 
 Cross-reference validation for SpringBone checks node, collider, and collider-group indexes. When `ValidationContext::nodeParents` is supplied with one optional parent per glTF node, it also checks joint ancestry and center-space constraints. It does not evaluate or simulate SpringBone physics.
 
-The implementation follows the VRM Consortium specification. The parser is not yet a complete VRM 1.0 implementation.
+Independent parsers are also available for `VRMC_node_constraint`, `VRMC_materials_mtoon`, `VRMC_springBone_extended_collider`, `VRMC_springBone_limit`, and `VRMC_materials_hdr_emissiveMultiplier`. The SpringBone parser automatically reads the extended collider and limit objects attached to collider/joint `extensions` fields.
+
+The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`; its parser is retained for compatibility with existing VRM assets.
+
+The implementation covers the listed extension data, but it is not a complete glTF parser, GLB loader, renderer, or physics runtime.
 
 ## License
 
