@@ -22,7 +22,8 @@ nlohmann::json validVrmJson() {
 		"meta": {
 			"name": "Minimal avatar",
 			"authors": ["Test author"],
-			"licenseUrl": "https://vrm.dev/licenses/1.0/"
+			"licenseUrl": "https://vrm.dev/licenses/1.0/",
+			"thumbnailImage": 0
 		},
 		"humanoid": {
 			"humanBones": {
@@ -56,6 +57,12 @@ void testRequiredDataAndNodeZero() {
 	check(result.value().humanoid[vrm10::HumanBone::Hips]->value == 0, "node index zero must be valid");
 	check(result.value().meta.avatarPermission == vrm10::AvatarPermission::OnlyAuthor, "avatarPermission default should be applied");
 	check(result.value().meta.commercialUsage == vrm10::CommercialUsage::PersonalNonProfit, "commercialUsage default should be applied");
+	check(result.value().meta.thumbnailImage.has_value(), "thumbnailImage should be parsed");
+	if (result.value().meta.thumbnailImage) {
+		check(result.value().meta.thumbnailImage->value == 0, "image index zero must be valid");
+	}
+	const auto imageReport = vrm10::validate(result.value(), vrm10::ValidationContext{15, 0, 1});
+	check(imageReport.empty(), "in-range thumbnail image index should validate");
 }
 
 void testUnknownEnumValue() {
@@ -398,6 +405,10 @@ void testMToonAndHdrParsing() {
 		check(mtoon.value().shadingToonyFactor == 0.9f, "MToon shadingToonyFactor default should be applied");
 		check(mtoon.value().giEqualizationFactor == 0.9f, "MToon giEqualizationFactor default should be applied");
 		check(mtoon.value().shadeMultiplyTexture.has_value(), "MToon texture info should be parsed");
+		if (mtoon.value().shadeMultiplyTexture) {
+			check(mtoon.value().shadeMultiplyTexture->index.value == 0, "texture index zero must be valid");
+			check(mtoon.value().shadeMultiplyTexture->texCoord.value == 0, "texture coordinate set should default to zero");
+		}
 		check(mtoon.value().shadingShiftTexture->scale == -0.2f, "shading shift texture scale should be preserved");
 		vrm10::ValidationContext context;
 		context.textureCount = 2;
@@ -525,6 +536,10 @@ void testVrmHierarchyAndMorphTargetValidation() {
 	context.nodeMorphTargetCounts[2] = 1;
 	auto validReport = vrm10::validate(parsed.value(), context);
 	check(validReport.empty(), "valid humanoid hierarchy and morph target reference should pass");
+	check(
+		parsed.value().expressions->custom.at("smile").morphTargetBinds[0].index.value == 0,
+		"morph target index zero must be preserved"
+	);
 
 	auto invalidMorph = parsed.value();
 	invalidMorph.expressions->custom.at("smile").morphTargetBinds[0].index = vrm10::MorphTargetIndex{1};
