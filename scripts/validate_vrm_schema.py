@@ -25,11 +25,13 @@ def main() -> int:
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--spec-root", type=Path, required=True)
 	parser.add_argument("--extension", default="VRMC_vrm")
+	parser.add_argument("--schema-filename", default=None)
 	parser.add_argument("--fixtures", type=Path, default=Path("tests/fixtures/vrmc_vrm"))
 	args = parser.parse_args()
 
 	schema_dir = args.spec_root / "specification" / f"{args.extension}-1.0" / "schema"
-	schema_path = schema_dir / f"{args.extension}.schema.json"
+	schema_filename = args.schema_filename or f"{args.extension}.schema.json"
+	schema_path = schema_dir / schema_filename
 	schema = load_json(schema_path)
 
 	Draft4Validator.check_schema(schema)
