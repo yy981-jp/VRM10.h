@@ -515,6 +515,7 @@ void testVrmHierarchyAndMorphTargetValidation() {
 
 	vrm10::ValidationContext context;
 	context.nodeCount = 15;
+	context.imageCount = 1;
 	context.nodeParents = {
 		std::nullopt,
 		vrm10::NodeIndex{0},
