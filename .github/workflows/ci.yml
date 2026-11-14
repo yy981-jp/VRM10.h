@@ -46,6 +46,21 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: Download pinned real VRM asset
+        run: |
+          mkdir -p build/real-vrm
+          curl --fail --location --retry 3 --retry-all-errors \
+            https://github.com/yy981-jp/Scalix-Assets/releases/download/v0/init.vrm \
+            --output build/real-vrm/init.vrm
+          echo "f6049be486b6406d469388164305d34c1af1c53043f3c9cb05db80df72b507b7  build/real-vrm/init.vrm" \
+            | sha256sum --check
+
+      - name: Extract GLB JSON for parser integration test
+        run: python3 scripts/extract_glb_json.py build/real-vrm/init.vrm build/real-vrm/init.json
+
+      - name: Parse and semantically validate real VRM
+        run: ./build/vrm10_asset_tests build/real-vrm/init.json
+
       - name: Install package
         run: cmake --install build --prefix "${{ github.workspace }}/build/install"
 
@@ -159,10 +174,26 @@ jobs:
             tests/fixtures/models/minimal.vrm.gltf \
             > build/vrm-validator/report.json
 
+      - name: Download pinned real VRM asset
+        run: |
+          curl --fail --location --retry 3 --retry-all-errors \
+            https://github.com/yy981-jp/Scalix-Assets/releases/download/v0/init.vrm \
+            --output build/vrm-validator/init.vrm
+          echo "f6049be486b6406d469388164305d34c1af1c53043f3c9cb05db80df72b507b7  build/vrm-validator/init.vrm" \
+            | sha256sum --check
+
+      - name: Validate real VRM asset
+        run: |
+          .ci/vrm-validator/build/bin/vrm_validator \
+            --all \
+            --stdout \
+            build/vrm-validator/init.vrm \
+            > build/vrm-validator/real-asset-report.json
+
       - name: Upload external validation report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: external-vrm-validator-report
-          path: build/vrm-validator/report.json
+          path: build/vrm-validator/*.json
           if-no-files-found: warn
