@@ -26,7 +26,7 @@ inline Result<TextureInfo> parseTextureInfo(const Json& json, const std::string&
 	if (!index) return index.error();
 	auto texCoord = readOptionalUint32(json, "texCoord", path, 0);
 	if (!texCoord) return texCoord.error();
-	return TextureInfo{TextureIndex{index.value()}, texCoord.value()};
+	return TextureInfo{TextureIndex{index.value()}, TexCoordIndex{texCoord.value()}};
 }
 
 inline Result<ShadingShiftTextureInfo> parseShadingShiftTextureInfo(const Json& json, const std::string& path) {
