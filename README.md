@@ -114,7 +114,8 @@ if (report.hasErrors()) {
 - [x] VRMC_materials_mtoon
 - [x] VRMC_springBone_extended_collider
 - [x] VRMC_springBone_limit
-- [x] VRMC_materials_hdr_emissiveMultiplier
+- [x] VRMC_materials_hdr_emissiveMultiplier (legacy compatibility)
+- [x] KHR_materials_emissive_strength
 - [x] Positive and negative official JSON Schema fixtures for all seven in-scope extensions
 - [ ] Complete semantic validation coverage
 
@@ -146,7 +147,8 @@ The remaining parsers accept the JSON value of the extension at its glTF-defined
 
 - `parseNodeConstraint`: a node's `extensions.VRMC_node_constraint`
 - `parseMaterialsMToon`: a material's `extensions.VRMC_materials_mtoon`
-- `parseHdrEmissiveMultiplier`: a material's `extensions.VRMC_materials_hdr_emissiveMultiplier`
+- `parseHdrEmissiveMultiplier`: a material's `extensions.VRMC_materials_hdr_emissiveMultiplier` (legacy compatibility)
+- `parseMaterialsEmissiveStrength`: a material's `extensions.KHR_materials_emissive_strength`
 - `parseSpringBoneExtendedCollider`: standalone parsing of a collider's nested extension
 - `parseSpringBoneLimit`: standalone parsing of a joint's nested extension
 
@@ -168,7 +170,7 @@ context.textureCount = model.textures.size();
 const auto report = vrm10::validate(mtoon, context);
 ```
 
-The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`; its parser is retained for compatibility with existing VRM assets.
+The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`. Both parsers are available: the former for compatibility with existing VRM assets, and the latter for current glTF materials.
 
 The implementation covers the listed extension data, but it is not a complete glTF parser, GLB loader, renderer, or physics runtime.
 
