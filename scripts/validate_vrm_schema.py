@@ -24,11 +24,12 @@ def format_error(error: object) -> str:
 def main() -> int:
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--spec-root", type=Path, required=True)
+	parser.add_argument("--extension", default="VRMC_vrm")
 	parser.add_argument("--fixtures", type=Path, default=Path("tests/fixtures/vrmc_vrm"))
 	args = parser.parse_args()
 
-	schema_dir = args.spec_root / "specification" / "VRMC_vrm-1.0" / "schema"
-	schema_path = schema_dir / "VRMC_vrm.schema.json"
+	schema_dir = args.spec_root / "specification" / f"{args.extension}-1.0" / "schema"
+	schema_path = schema_dir / f"{args.extension}.schema.json"
 	schema = load_json(schema_path)
 
 	Draft4Validator.check_schema(schema)
@@ -79,7 +80,7 @@ def main() -> int:
 		print(f"{failures} schema fixture(s) failed.", file=sys.stderr)
 		return 1
 
-	print("All VRMC_vrm schema fixtures passed.")
+	print(f"All {args.extension} schema fixtures passed.")
 	return 0
 
 

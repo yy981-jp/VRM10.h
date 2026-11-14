@@ -53,7 +53,7 @@ Keep four concerns separate:
 
 1. JSON parsing converts one extension JSON object into typed C++ data.
 2. Structural validation checks required fields, JSON types, array lengths, enum values, and specification-level value constraints.
-3. Cross-reference validation checks indexes against caller-supplied glTF counts or context.
+3. Cross-reference validation checks indexes against caller-supplied glTF counts or context. When supplied, node-parent relationships may also be used for extension-specific hierarchy constraints.
 4. Runtime interpretation belongs to the consuming application, not this library.
 
 Extension parsers should be independently usable. A parser receives the JSON value of the extension itself, not a tinygltf::Model or the full glTF document.
@@ -70,7 +70,7 @@ Do not assume every extension is stored at the glTF root.
 
 ## 5. Public data model rules
 
-- Use strongly typed index wrappers (NodeIndex, MaterialIndex, ImageIndex, and so on). Do not use bare integers interchangeably.
+- Use strongly typed index wrappers (NodeIndex, MaterialIndex, SpringColliderIndex, SpringColliderGroupIndex, ImageIndex, and so on). Do not use bare integers interchangeably.
 - File indexes are not engine handles. In particular, NodeIndex must never become a Scalix NodeHandle inside this library.
 - Index zero is valid. Absence must be represented explicitly, normally with std::optional.
 - Use std::array for closed, specification-defined sets such as humanoid bones.

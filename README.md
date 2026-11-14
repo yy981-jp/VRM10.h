@@ -86,15 +86,30 @@ if (report.hasErrors()) {
 - [x] Project skeleton and CMake package target
 - [x] Result and diagnostic types
 - [x] VRMC_vrm: Meta, Humanoid, FirstPerson, Expressions, LookAt
-- [x] Basic cross-reference validation for VRMC_vrm
+- [x] Basic cross-reference validation for VRMC_vrm and VRMC_springBone
 - [x] Optional TinyGLTF-to-JSON utility
-- [ ] VRMC_springBone
+- [x] VRMC_springBone
 - [ ] VRMC_node_constraint
 - [ ] VRMC_materials_mtoon
 - [ ] VRMC_springBone_extended_collider
 - [ ] VRMC_springBone_limit
 - [ ] VRMC_materials_hdr_emissiveMultiplier
 - [ ] Full schema and semantic validation coverage
+
+The SpringBone parser is available independently through `parseSpringBone`:
+
+```cpp
+nlohmann::json springBoneExtension = /* extensions["VRMC_springBone"] */;
+auto springBone = vrm10::parseSpringBone(springBoneExtension);
+if (!springBone) {
+	// springBone.error().path and springBone.error().message
+	return;
+}
+
+const vrm10::SpringBone& data = springBone.value();
+```
+
+Cross-reference validation for SpringBone checks node, collider, and collider-group indexes. When `ValidationContext::nodeParents` is supplied with one optional parent per glTF node, it also checks joint ancestry and center-space constraints. It does not evaluate or simulate SpringBone physics.
 
 The implementation follows the VRM Consortium specification. The parser is not yet a complete VRM 1.0 implementation.
 
