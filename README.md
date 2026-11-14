@@ -101,3 +101,13 @@ The implementation follows the VRM Consortium specification. The parser is not y
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Development policy
+
+See [memo/DEVELOPMENT.md](memo/DEVELOPMENT.md) for architecture, scope, API, data-model, and coding rules.
+
+## Validation
+
+GitHub Actions runs C++17 tests with GCC and Clang, validates fixtures against the official VRM JSON Schema, and checks a model fixture with an independent VRM Validator. The external validator's JSON report is uploaded as a workflow artifact.
+
+See [memo/VALIDATION.md](memo/VALIDATION.md) for pinned upstream revisions, exact coverage, and known limitations.
