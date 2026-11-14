@@ -59,6 +59,20 @@ jobs:
           ref: 94e82dd346fa6cf0337c4421728640e5252dd38e
           path: .ci/vrm-specification
 
+      - name: Checkout pinned glTF 2.0 schemas
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/glTF
+          ref: 5961f897c1cfe51b8e270b2e905d529e2c6127d4
+          path: .ci/gltf-specification
+
+      - name: Add shared glTF schema dependencies
+        run: |
+          schema_dir=.ci/vrm-specification/specification/VRMC_vrm-1.0/schema
+          gltf_schema_dir=.ci/gltf-specification/specification/2.0/schema
+          cp "$gltf_schema_dir/glTFProperty.schema.json" "$schema_dir/"
+          cp "$gltf_schema_dir/glTFid.schema.json" "$schema_dir/"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -99,7 +113,7 @@ jobs:
       - name: Validate VRM extension fixture
         run: |
           mkdir -p build/vrm-validator
-          .ci/vrm-validator/build/bin/gltf_validator \
+          .ci/vrm-validator/build/bin/vrm_validator \
             --all \
             --stdout \
             tests/fixtures/models/minimal.vrm.gltf \

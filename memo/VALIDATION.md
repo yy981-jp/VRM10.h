@@ -19,14 +19,21 @@ Source:
 
 https://github.com/vrm-c/vrm-specification
 
-CI checks out the specification repository at the pinned revision:
+CI checks out the VRM specification repository at this pinned revision:
 
 - Repository: vrm-c/vrm-specification
 - Revision: 94e82dd346fa6cf0337c4421728640e5252dd38e
 - Revision date: 2026-10-02
 - Schema family: JSON Schema Draft-04
 
-The revision is pinned so that a change in the upstream master branch cannot silently change our CI result. Update the pin deliberately when adopting a newer VRM specification revision, and review the schema diff at the same time.
+The VRM schema files reference common glTF schema definitions such as glTFProperty.schema.json and glTFid.schema.json. Those files are maintained in the Khronos glTF repository, so CI checks out that repository separately and copies the two shared schemas into the VRM schema directory before validation.
+
+The glTF schema revision is pinned:
+
+- Repository: KhronosGroup/glTF
+- Revision: 5961f897c1cfe51b8e270b2e905d529e2c6127d4
+
+Both pins prevent upstream changes from silently changing CI results. Update pins deliberately and review their schema diffs together.
 
 Current automated schema fixtures cover VRMC_vrm. As each extension is implemented, add its positive and negative fixtures and extend the schema validation script to check that extension's schema.
 
@@ -47,12 +54,13 @@ Pinned source revision:
 - Revision date: 2024-11-13
 - License: Apache-2.0
 - Build runtime: Dart SDK 2.19.6 (pinned because the validator's pubspec.yaml constrains the SDK to <3.0.0 at this revision)
+- Generated CLI: build/bin/vrm_validator
 
 CI builds the validator from source using the upstream documented command:
 
 dart run grinder exe
 
-It runs the validator with --all --stdout against tests/fixtures/models/minimal.vrm.gltf. The JSON report is uploaded as a GitHub Actions artifact even when the validation step fails.
+It runs the generated validator with --all --stdout against tests/fixtures/models/minimal.vrm.gltf. The JSON report is uploaded as a GitHub Actions artifact even when the validation step fails.
 
 The fixture is a deliberately small glTF JSON document containing VRMC_vrm and a minimal humanoid node hierarchy. It tests extension parsing and reference linking without making this project responsible for GLB binary construction. It is not intended to be a renderable avatar or a replacement for real-world .vrm integration fixtures.
 
@@ -75,7 +83,7 @@ A second historical project, saturday06/VRM-Validator, is a 2019 fork of Khronos
 The required CI jobs are:
 
 1. cpp: configure, compile, and run C++17 tests with GCC and Clang.
-2. vrm-schema: validate valid and intentionally invalid VRMC_vrm fixtures against the pinned official schema.
+2. vrm-schema: validate valid and intentionally invalid VRMC_vrm fixtures against the pinned official VRM schema and its pinned shared glTF schemas.
 3. external-vrm-validator: build the pinned external validator, validate the minimal VRM-extension fixture, and upload its JSON report.
 
 A job should fail on:
@@ -101,10 +109,10 @@ As the implementation grows:
 
 ## 6. Updating external pins
 
-When updating the VRM specification or external validator:
+When updating the VRM specification, glTF schema source, or external validator:
 
 1. Inspect the upstream changelog and commit diff.
-2. Confirm the new revision still supports the invocation used in CI.
+2. Confirm the new revision still contains the referenced schemas or supports the invocation used in CI.
 3. Update the pinned revision in .github/workflows/ci.yml.
 4. Update the recorded revision and known coverage in this memo.
 5. Run the full workflow and review the new validation report.
