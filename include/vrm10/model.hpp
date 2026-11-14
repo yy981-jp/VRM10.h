@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace vrm10 {
@@ -26,6 +27,22 @@ struct MaterialIndex {
 	std::uint32_t value{};
 
 	friend constexpr bool operator==(MaterialIndex lhs, MaterialIndex rhs) noexcept {
+		return lhs.value == rhs.value;
+	}
+};
+
+struct SpringColliderIndex {
+	std::uint32_t value{};
+
+	friend constexpr bool operator==(SpringColliderIndex lhs, SpringColliderIndex rhs) noexcept {
+		return lhs.value == rhs.value;
+	}
+};
+
+struct SpringColliderGroupIndex {
+	std::uint32_t value{};
+
+	friend constexpr bool operator==(SpringColliderGroupIndex lhs, SpringColliderGroupIndex rhs) noexcept {
 		return lhs.value == rhs.value;
 	}
 };
@@ -229,6 +246,52 @@ struct LookAt {
 	std::optional<LookAtRangeMap> rangeMapHorizontalOuter;
 	std::optional<LookAtRangeMap> rangeMapVerticalDown;
 	std::optional<LookAtRangeMap> rangeMapVerticalUp;
+};
+
+struct SphereCollider {
+	std::array<float, 3> offset{{0.0f, 0.0f, 0.0f}};
+	float radius{0.0f};
+};
+
+struct CapsuleCollider {
+	std::array<float, 3> offset{{0.0f, 0.0f, 0.0f}};
+	float radius{0.0f};
+	std::array<float, 3> tail{{0.0f, 0.0f, 0.0f}};
+};
+
+using SpringColliderShape = std::variant<SphereCollider, CapsuleCollider>;
+
+struct SpringCollider {
+	NodeIndex node;
+	SpringColliderShape shape;
+};
+
+struct SpringColliderGroup {
+	std::string name;
+	std::vector<SpringColliderIndex> colliders;
+};
+
+struct SpringJoint {
+	NodeIndex node;
+	float hitRadius{0.0f};
+	float stiffness{1.0f};
+	float gravityPower{0.0f};
+	std::array<float, 3> gravityDir{{0.0f, -1.0f, 0.0f}};
+	float dragForce{0.5f};
+};
+
+struct SpringChain {
+	std::string name;
+	std::vector<SpringJoint> joints;
+	std::vector<SpringColliderGroupIndex> colliderGroups;
+	std::optional<NodeIndex> center;
+};
+
+struct SpringBone {
+	std::string specVersion;
+	std::vector<SpringCollider> colliders;
+	std::vector<SpringColliderGroup> colliderGroups;
+	std::vector<SpringChain> springs;
 };
 
 struct Vrm {

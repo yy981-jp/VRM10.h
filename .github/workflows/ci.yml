@@ -68,8 +68,11 @@ jobs:
 
       - name: Add shared glTF schema dependencies
         run: |
-          schema_dir=.ci/vrm-specification/specification/VRMC_vrm-1.0/schema
           gltf_schema_dir=.ci/gltf-specification/specification/2.0/schema
+          schema_dir=.ci/vrm-specification/specification/VRMC_vrm-1.0/schema
+          cp "$gltf_schema_dir/glTFProperty.schema.json" "$schema_dir/"
+          cp "$gltf_schema_dir/glTFid.schema.json" "$schema_dir/"
+          schema_dir=.ci/vrm-specification/specification/VRMC_springBone-1.0/schema
           cp "$gltf_schema_dir/glTFProperty.schema.json" "$schema_dir/"
           cp "$gltf_schema_dir/glTFid.schema.json" "$schema_dir/"
 
@@ -80,10 +83,16 @@ jobs:
       - name: Install schema validator
         run: python -m pip install --disable-pip-version-check jsonschema==4.23.0
 
-      - name: Validate VRMC_vrm fixtures
-        run: >-
-          python scripts/validate_vrm_schema.py
-          --spec-root .ci/vrm-specification
+      - name: Validate official VRM JSON Schema fixtures
+        run: |
+          python scripts/validate_vrm_schema.py \
+            --spec-root .ci/vrm-specification \
+            --extension VRMC_vrm \
+            --fixtures tests/fixtures/vrmc_vrm
+          python scripts/validate_vrm_schema.py \
+            --spec-root .ci/vrm-specification \
+            --extension VRMC_springBone \
+            --fixtures tests/fixtures/vrmc_springBone
 
   external-vrm-validator:
     name: External VRM Validator

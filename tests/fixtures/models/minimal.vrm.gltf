@@ -99,10 +99,12 @@
 		}
 	],
 	"extensionsUsed": [
-		"VRMC_vrm"
+		"VRMC_vrm",
+		"VRMC_springBone"
 	],
 	"extensionsRequired": [
-		"VRMC_vrm"
+		"VRMC_vrm",
+		"VRMC_springBone"
 	],
 	"extensions": {
 		"VRMC_vrm": {
@@ -163,6 +165,22 @@
 					}
 				}
 			}
+		},
+		"VRMC_springBone": {
+			"specVersion": "1.0",
+			"springs": [
+				{
+					"name": "fixture",
+					"joints": [
+						{
+							"node": 1
+						},
+						{
+							"node": 2
+						}
+					]
+				}
+			]
 		}
 	}
 }

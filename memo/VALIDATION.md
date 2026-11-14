@@ -35,7 +35,7 @@ The glTF schema revision is pinned:
 
 Both pins prevent upstream changes from silently changing CI results. Update pins deliberately and review their schema diffs together.
 
-Current automated schema fixtures cover VRMC_vrm. As each extension is implemented, add its positive and negative fixtures and extend the schema validation script to check that extension's schema.
+Current automated schema fixtures cover VRMC_vrm and VRMC_springBone. As each extension is implemented, add its positive and negative fixtures and run the generalized schema validation script against that extension's schema.
 
 The schema job uses jsonschema only in CI. It is not a runtime dependency of VRM10.h.
 
@@ -83,7 +83,7 @@ A second historical project, saturday06/VRM-Validator, is a 2019 fork of Khronos
 The required CI jobs are:
 
 1. cpp: configure, compile, and run C++17 tests with GCC and Clang.
-2. vrm-schema: validate valid and intentionally invalid VRMC_vrm fixtures against the pinned official VRM schema and its pinned shared glTF schemas.
+2. vrm-schema: validate valid and intentionally invalid VRMC_vrm and VRMC_springBone fixtures against the pinned official VRM schemas and their pinned shared glTF schemas.
 3. external-vrm-validator: build the pinned external validator, validate the minimal VRM-extension fixture, and upload its JSON report.
 
 A job should fail on:
