@@ -1,0 +1,60 @@
+{
+	"specVersion": "1.0",
+	"meta": {
+		"name": "VRM10.h validation fixture",
+		"authors": [
+			"VRM10.h CI"
+		],
+		"licenseUrl": "https://vrm.dev/licenses/1.0/",
+		"avatarPermission": "futurePermission"
+	},
+	"humanoid": {
+		"humanBones": {
+			"hips": {
+				"node": 1
+			},
+			"spine": {
+				"node": 2
+			},
+			"head": {
+				"node": 3
+			},
+			"leftUpperLeg": {
+				"node": 4
+			},
+			"leftLowerLeg": {
+				"node": 5
+			},
+			"leftFoot": {
+				"node": 6
+			},
+			"rightUpperLeg": {
+				"node": 7
+			},
+			"rightLowerLeg": {
+				"node": 8
+			},
+			"rightFoot": {
+				"node": 9
+			},
+			"leftUpperArm": {
+				"node": 10
+			},
+			"leftLowerArm": {
+				"node": 11
+			},
+			"leftHand": {
+				"node": 12
+			},
+			"rightUpperArm": {
+				"node": 13
+			},
+			"rightLowerArm": {
+				"node": 14
+			},
+			"rightHand": {
+				"node": 15
+			}
+		}
+	}
+}
