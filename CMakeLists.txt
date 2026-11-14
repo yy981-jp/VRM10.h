@@ -35,6 +35,7 @@ if(VRM10_BUILD_TESTS)
 		vrm10/parser/node_constraint.hpp
 		vrm10/parser/materials_mtoon.hpp
 		vrm10/parser/materials_hdr_emissive_multiplier.hpp
+		vrm10/parser/materials_emissive_strength.hpp
 		vrm10/validation.hpp
 		vrm10/vrm10.hpp
 	)
