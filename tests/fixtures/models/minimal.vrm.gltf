@@ -113,7 +113,8 @@
 		"VRMC_vrm",
 		"VRMC_springBone",
 		"VRMC_node_constraint",
-		"VRMC_materials_mtoon"
+		"VRMC_materials_mtoon",
+		"KHR_materials_emissive_strength"
 	],
 	"extensionsRequired": [
 		"VRMC_vrm",
@@ -202,6 +203,9 @@
 			"extensions": {
 				"VRMC_materials_mtoon": {
 					"specVersion": "1.0"
+				},
+				"KHR_materials_emissive_strength": {
+					"emissiveStrength": 2
 				}
 			}
 		}
