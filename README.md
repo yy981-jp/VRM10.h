@@ -28,6 +28,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+With `VRM10_BUILD_TESTS=ON`, the build also compiles each public header in an isolated translation unit to catch accidental dependence on include order.
+
 ## Usage
 
 `parseVrm` receives the value of `extensions.VRMC_vrm`, not the complete glTF document:
