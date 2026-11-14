@@ -175,7 +175,7 @@ inline Result<Meta> parseMeta(const Json& json, const std::string& path) {
 	if (json.contains("thumbnailImage")) {
 		auto thumbnail = readOptionalUint32(json, "thumbnailImage", path);
 		if (!thumbnail) return thumbnail.error();
-		result.thumbnailImage = thumbnail.value();
+		result.thumbnailImage = ImageIndex{thumbnail.value()};
 	}
 
 	auto avatarPermission = readEnum(json, "avatarPermission", path, AvatarPermissionValues, false, AvatarPermission::OnlyAuthor);
@@ -290,7 +290,7 @@ inline Result<MorphTargetBind> parseMorphTargetBind(const Json& json, const std:
 			"Morph target weight must be between zero and one."
 		);
 	}
-	return MorphTargetBind{NodeIndex{node.value()}, index.value(), weight.value()};
+	return MorphTargetBind{NodeIndex{node.value()}, MorphTargetIndex{index.value()}, weight.value()};
 }
 
 inline Result<MaterialColorBind> parseMaterialColorBind(const Json& json, const std::string& path) {
