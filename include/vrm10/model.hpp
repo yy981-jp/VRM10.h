@@ -413,6 +413,12 @@ struct ShadingShiftTextureInfo {
 	float scale{1.0f};
 };
 
+enum class GltfAlphaMode : std::uint8_t {
+	Opaque,
+	Mask,
+	Blend
+};
+
 enum class OutlineWidthMode : std::uint8_t {
 	None,
 	WorldCoordinates,
