@@ -35,6 +35,18 @@ The implementation must follow the VRM Consortium specifications and schemas, no
 
 Related glTF material extensions may be represented when they replace or complement VRM material extensions (currently KHR_materials_emissive_strength), but this library does not become a general glTF parser.
 
+## Completion criteria
+
+The project is considered complete for its declared responsibility when:
+
+- Each in-scope extension has a typed parser with specification defaults and structural/value checks.
+- Cross-reference checks use explicit caller-supplied glTF metadata and do not require a glTF loader.
+- Positive and negative fixtures pass against pinned official schemas.
+- The pinned real VRM regression asset passes the library's parser and supported semantic checks under both GCC and Clang.
+- The installed CMake package works from an independent consumer project.
+
+This completion definition does not include validating every general glTF 2.0 rule, loading GLB binary resources, rendering materials, evaluating constraints, or simulating SpringBone physics. Those are intentionally outside the library's responsibility.
+
 ## 3. Language, dependencies, and distribution
 
 - Language baseline: C++17.
