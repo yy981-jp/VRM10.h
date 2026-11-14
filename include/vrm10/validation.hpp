@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -49,7 +50,96 @@ struct ValidationContext {
 	std::size_t imageCount{};
 	std::vector<std::optional<NodeIndex>> nodeParents;
 	std::size_t textureCount{};
+	// One entry per node when provided. nullopt means the node has no mesh.
+	std::vector<std::optional<std::size_t>> nodeMorphTargetCounts;
 };
+
+
+namespace detail {
+
+struct HumanBoneHierarchyEntry {
+	HumanBone bone;
+	HumanBone parent;
+	bool hasParent;
+	bool parentRequired;
+};
+
+inline constexpr HumanBoneHierarchyEntry HumanBoneHierarchy[] = {
+	{HumanBone::Hips, HumanBone::Hips, false, false},
+	{HumanBone::Spine, HumanBone::Hips, true, true},
+	{HumanBone::Chest, HumanBone::Spine, true, true},
+	{HumanBone::UpperChest, HumanBone::Chest, true, true},
+	{HumanBone::Neck, HumanBone::UpperChest, true, false},
+	{HumanBone::Head, HumanBone::Neck, true, false},
+	{HumanBone::LeftEye, HumanBone::Head, true, true},
+	{HumanBone::RightEye, HumanBone::Head, true, true},
+	{HumanBone::Jaw, HumanBone::Head, true, true},
+	{HumanBone::LeftUpperLeg, HumanBone::Hips, true, true},
+	{HumanBone::LeftLowerLeg, HumanBone::LeftUpperLeg, true, true},
+	{HumanBone::LeftFoot, HumanBone::LeftLowerLeg, true, true},
+	{HumanBone::LeftToes, HumanBone::LeftFoot, true, true},
+	{HumanBone::RightUpperLeg, HumanBone::Hips, true, true},
+	{HumanBone::RightLowerLeg, HumanBone::RightUpperLeg, true, true},
+	{HumanBone::RightFoot, HumanBone::RightLowerLeg, true, true},
+	{HumanBone::RightToes, HumanBone::RightFoot, true, true},
+	{HumanBone::LeftShoulder, HumanBone::UpperChest, true, false},
+	{HumanBone::LeftUpperArm, HumanBone::LeftShoulder, true, false},
+	{HumanBone::LeftLowerArm, HumanBone::LeftUpperArm, true, true},
+	{HumanBone::LeftHand, HumanBone::LeftLowerArm, true, true},
+	{HumanBone::RightShoulder, HumanBone::UpperChest, true, false},
+	{HumanBone::RightUpperArm, HumanBone::RightShoulder, true, false},
+	{HumanBone::RightLowerArm, HumanBone::RightUpperArm, true, true},
+	{HumanBone::RightHand, HumanBone::RightLowerArm, true, true},
+	{HumanBone::LeftThumbMetacarpal, HumanBone::LeftHand, true, true},
+	{HumanBone::LeftThumbProximal, HumanBone::LeftThumbMetacarpal, true, true},
+	{HumanBone::LeftThumbDistal, HumanBone::LeftThumbProximal, true, true},
+	{HumanBone::LeftIndexProximal, HumanBone::LeftHand, true, true},
+	{HumanBone::LeftIndexIntermediate, HumanBone::LeftIndexProximal, true, true},
+	{HumanBone::LeftIndexDistal, HumanBone::LeftIndexIntermediate, true, true},
+	{HumanBone::LeftMiddleProximal, HumanBone::LeftHand, true, true},
+	{HumanBone::LeftMiddleIntermediate, HumanBone::LeftMiddleProximal, true, true},
+	{HumanBone::LeftMiddleDistal, HumanBone::LeftMiddleIntermediate, true, true},
+	{HumanBone::LeftRingProximal, HumanBone::LeftHand, true, true},
+	{HumanBone::LeftRingIntermediate, HumanBone::LeftRingProximal, true, true},
+	{HumanBone::LeftRingDistal, HumanBone::LeftRingIntermediate, true, true},
+	{HumanBone::LeftLittleProximal, HumanBone::LeftHand, true, true},
+	{HumanBone::LeftLittleIntermediate, HumanBone::LeftLittleProximal, true, true},
+	{HumanBone::LeftLittleDistal, HumanBone::LeftLittleIntermediate, true, true},
+	{HumanBone::RightThumbMetacarpal, HumanBone::RightHand, true, true},
+	{HumanBone::RightThumbProximal, HumanBone::RightThumbMetacarpal, true, true},
+	{HumanBone::RightThumbDistal, HumanBone::RightThumbProximal, true, true},
+	{HumanBone::RightIndexProximal, HumanBone::RightHand, true, true},
+	{HumanBone::RightIndexIntermediate, HumanBone::RightIndexProximal, true, true},
+	{HumanBone::RightIndexDistal, HumanBone::RightIndexIntermediate, true, true},
+	{HumanBone::RightMiddleProximal, HumanBone::RightHand, true, true},
+	{HumanBone::RightMiddleIntermediate, HumanBone::RightMiddleProximal, true, true},
+	{HumanBone::RightMiddleDistal, HumanBone::RightMiddleIntermediate, true, true},
+	{HumanBone::RightRingProximal, HumanBone::RightHand, true, true},
+	{HumanBone::RightRingIntermediate, HumanBone::RightRingProximal, true, true},
+	{HumanBone::RightRingDistal, HumanBone::RightRingIntermediate, true, true},
+	{HumanBone::RightLittleProximal, HumanBone::RightHand, true, true},
+	{HumanBone::RightLittleIntermediate, HumanBone::RightLittleProximal, true, true},
+	{HumanBone::RightLittleDistal, HumanBone::RightLittleIntermediate, true, true}
+};
+
+inline const HumanBoneHierarchyEntry* findHumanBoneHierarchy(HumanBone bone) noexcept {
+	for (const auto& entry : HumanBoneHierarchy) {
+		if (entry.bone == bone) return &entry;
+	}
+	return nullptr;
+}
+
+inline std::string_view humanBoneName(HumanBone bone) noexcept {
+	for (const auto& entry : HumanBoneEntries) {
+		if (entry.bone == bone) return entry.name;
+	}
+	return "unknown";
+}
+
+inline bool isAncestorOrSelf(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context);
+inline bool isStrictAncestor(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context);
+
+} // namespace detail
 
 inline ValidationReport validate(const Vrm& vrm, const ValidationContext& context) {
 	ValidationReport report;
@@ -75,6 +165,7 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 	};
 
 	std::unordered_map<std::uint32_t, HumanBone> assignedBones;
+	const bool hasNodeHierarchy = context.nodeParents.size() == context.nodeCount;
 	for (const auto& entry : detail::HumanBoneEntries) {
 		const auto& node = vrm.humanoid[entry.bone];
 		if (!node) continue;
@@ -89,6 +180,47 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 				"A glTF node must not be assigned to more than one humanoid bone."
 			});
 		}
+
+		const auto* hierarchy = detail::findHumanBoneHierarchy(entry.bone);
+		if (!hierarchy || !hierarchy->hasParent) continue;
+
+		HumanBone parentBone = hierarchy->parent;
+		if (!vrm.humanoid[parentBone]) {
+			if (hierarchy->parentRequired) {
+				report.issues.push_back({
+					ValidationSeverity::Error,
+					"missing-humanoid-parent-bone",
+					path,
+					"Bone '" + std::string(entry.name) + "' requires parent bone '" +
+						std::string(detail::humanBoneName(parentBone)) + "'."
+				});
+				continue;
+			}
+
+			bool foundAssignedAncestor = false;
+			while (const auto* parentHierarchy = detail::findHumanBoneHierarchy(parentBone)) {
+				if (vrm.humanoid[parentBone]) {
+					foundAssignedAncestor = true;
+					break;
+				}
+				if (!parentHierarchy->hasParent) break;
+				parentBone = parentHierarchy->parent;
+			}
+			if (!foundAssignedAncestor) continue;
+		}
+
+		if (hasNodeHierarchy && node->value < context.nodeCount) {
+			const auto& parentNode = vrm.humanoid[parentBone];
+			if (parentNode && parentNode->value < context.nodeCount &&
+				!detail::isAncestorOrSelf(*parentNode, *node, context)) {
+				report.issues.push_back({
+					ValidationSeverity::Error,
+					"humanoid-bone-not-descendant-of-parent",
+					path,
+					"Bone '" + std::string(entry.name) + "' must be a descendant of its assigned parent bone."
+				});
+			}
+		}
 	}
 
 	if (vrm.meta.thumbnailImage && vrm.meta.thumbnailImage.value() >= context.imageCount) {
@@ -101,8 +233,19 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 	}
 
 	if (vrm.firstPerson) {
+		const bool hasMorphTargetCounts = context.nodeMorphTargetCounts.size() == context.nodeCount;
 		for (std::size_t index = 0; index < vrm.firstPerson->meshAnnotations.size(); ++index) {
-			addNodeIssue(detail::childPath(detail::childPath("/firstPerson/meshAnnotations", index), "node"), vrm.firstPerson->meshAnnotations[index].node);
+			const auto path = detail::childPath(detail::childPath("/firstPerson/meshAnnotations", index), "node");
+			const NodeIndex node = vrm.firstPerson->meshAnnotations[index].node;
+			addNodeIssue(path, node);
+			if (hasMorphTargetCounts && node.value < context.nodeCount && !context.nodeMorphTargetCounts[node.value]) {
+				report.issues.push_back({
+					ValidationSeverity::Error,
+					"first-person-node-has-no-mesh",
+					path,
+					"First-person mesh annotations must reference a node that has a mesh."
+				});
+			}
 		}
 	}
 
@@ -112,7 +255,31 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 				const auto expressionPath = detail::childPath(detail::childPath("/expressions", category), namedExpression.first);
 				const auto& expression = namedExpression.second;
 				for (std::size_t index = 0; index < expression.morphTargetBinds.size(); ++index) {
-					addNodeIssue(detail::childPath(detail::childPath(detail::childPath(expressionPath, "morphTargetBinds"), index), "node"), expression.morphTargetBinds[index].node);
+					const auto bindPath = detail::childPath(detail::childPath(expressionPath, "morphTargetBinds"), index);
+					const auto nodePath = detail::childPath(bindPath, "node");
+					const auto indexPath = detail::childPath(bindPath, "index");
+					const auto& bind = expression.morphTargetBinds[index];
+					addNodeIssue(nodePath, bind.node);
+
+					if (context.nodeMorphTargetCounts.size() == context.nodeCount && bind.node.value < context.nodeCount) {
+						const auto& targetCount = context.nodeMorphTargetCounts[bind.node.value];
+						if (!targetCount) {
+							report.issues.push_back({
+								ValidationSeverity::Error,
+								"morph-target-node-has-no-mesh",
+								nodePath,
+								"Morph target binds must reference a node that has a mesh."
+							});
+						} else if (bind.index >= *targetCount) {
+							report.issues.push_back({
+								ValidationSeverity::Error,
+								"morph-target-index-out-of-range",
+								indexPath,
+								"Morph target index " + std::to_string(bind.index) +
+									" is outside the target mesh morph target array."
+							});
+						}
+					}
 				}
 				for (std::size_t index = 0; index < expression.materialColorBinds.size(); ++index) {
 					addMaterialIssue(detail::childPath(detail::childPath(detail::childPath(expressionPath, "materialColorBinds"), index), "material"), expression.materialColorBinds[index].material);
@@ -130,27 +297,7 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 }
 
 
-namespace detail {
 
-inline bool isAncestorOrSelf(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context) {
-	if (ancestor == descendant) return true;
-	if (context.nodeParents.size() != context.nodeCount) return false;
-	std::uint32_t current = descendant.value;
-	for (std::size_t step = 0; step < context.nodeCount; ++step) {
-		if (current >= context.nodeParents.size()) return false;
-		const auto& parent = context.nodeParents[current];
-		if (!parent || parent->value >= context.nodeCount) return false;
-		if (*parent == ancestor) return true;
-		current = parent->value;
-	}
-	return false;
-}
-
-inline bool isStrictAncestor(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context) {
-	return ancestor != descendant && isAncestorOrSelf(ancestor, descendant, context);
-}
-
-} // namespace detail
 
 inline ValidationReport validate(const SpringBone& springBone, const ValidationContext& context) {
 	ValidationReport report;
