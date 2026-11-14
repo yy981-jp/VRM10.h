@@ -54,7 +54,7 @@ Keep four concerns separate:
 1. JSON parsing converts one extension JSON object into typed C++ data.
 2. Structural validation checks required fields, JSON types, array lengths, enum values, and specification-level value constraints.
 3. Cross-reference validation checks indexes against caller-supplied glTF counts or context. When supplied, node-parent relationships may also be used for extension-specific hierarchy constraints.
-4. Runtime interpretation belongs to the consuming application, not this library.
+4. Runtime interpretation belongs to the consuming application, not this library. The library does not evaluate node constraints, render MToon, or execute SpringBone simulation/limits.
 
 Extension parsers should be independently usable. A parser receives the JSON value of the extension itself, not a tinygltf::Model or the full glTF document.
 
@@ -70,7 +70,7 @@ Do not assume every extension is stored at the glTF root.
 
 ## 5. Public data model rules
 
-- Use strongly typed index wrappers (NodeIndex, MaterialIndex, SpringColliderIndex, SpringColliderGroupIndex, ImageIndex, and so on). Do not use bare integers interchangeably.
+- Use strongly typed index wrappers (NodeIndex, MaterialIndex, TextureIndex, SpringColliderIndex, SpringColliderGroupIndex, ImageIndex, and so on). Do not use bare integers interchangeably.
 - File indexes are not engine handles. In particular, NodeIndex must never become a Scalix NodeHandle inside this library.
 - Index zero is valid. Absence must be represented explicitly, normally with std::optional.
 - Use std::array for closed, specification-defined sets such as humanoid bones.
@@ -79,7 +79,7 @@ Do not assume every extension is stored at the glTF root.
 - Preserve specification defaults in the typed model when an optional field is omitted.
 - Do not add runtime-derived values or engine-specific cached state to parsed data.
 - Do not silently reinterpret unknown enum strings. Return a typed parse error with the offending JSON Pointer.
-- Unknown extension objects not implemented by this library are outside this parser's responsibility. Unknown ordinary properties should not be rejected merely because this library does not consume them; schema validation remains the authoritative structural check.
+- Extension objects are parsed at their specification-defined locations: node constraints on nodes, MToon and HDR emission on materials, extended colliders on SpringBone colliders, and SpringBone limits on joints. The SpringBone parser composes the two nested SpringBone extension parsers. Unknown extension objects not implemented by this library are outside this parser's responsibility. Unknown ordinary properties should not be rejected merely because this library does not consume them; schema validation remains the authoritative structural check.
 
 ## 6. API and error handling
 
