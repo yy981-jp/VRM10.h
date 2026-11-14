@@ -136,8 +136,23 @@ inline std::string_view humanBoneName(HumanBone bone) noexcept {
 	return "unknown";
 }
 
-inline bool isAncestorOrSelf(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context);
-inline bool isStrictAncestor(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context);
+inline bool isAncestorOrSelf(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context) {
+	if (ancestor == descendant) return true;
+	if (context.nodeParents.size() != context.nodeCount) return false;
+	std::uint32_t current = descendant.value;
+	for (std::size_t step = 0; step < context.nodeCount; ++step) {
+		if (current >= context.nodeParents.size()) return false;
+		const auto& parent = context.nodeParents[current];
+		if (!parent || parent->value >= context.nodeCount) return false;
+		if (*parent == ancestor) return true;
+		current = parent->value;
+	}
+	return false;
+}
+
+inline bool isStrictAncestor(NodeIndex ancestor, NodeIndex descendant, const ValidationContext& context) {
+	return ancestor != descendant && isAncestorOrSelf(ancestor, descendant, context);
+}
 
 } // namespace detail
 
@@ -198,12 +213,13 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 			}
 
 			bool foundAssignedAncestor = false;
-			while (const auto* parentHierarchy = detail::findHumanBoneHierarchy(parentBone)) {
+			while (true) {
 				if (vrm.humanoid[parentBone]) {
 					foundAssignedAncestor = true;
 					break;
 				}
-				if (!parentHierarchy->hasParent) break;
+				const auto* parentHierarchy = detail::findHumanBoneHierarchy(parentBone);
+				if (!parentHierarchy || !parentHierarchy->hasParent) break;
 				parentBone = parentHierarchy->parent;
 			}
 			if (!foundAssignedAncestor) continue;
