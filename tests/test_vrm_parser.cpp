@@ -229,6 +229,21 @@ void testSpringBoneCrossReferenceValidation() {
 	duplicateChain.springs.push_back(duplicateChain.springs[0]);
 	auto duplicateReport = vrm10::validate(duplicateChain, context);
 	check(duplicateReport.hasErrors(), "a node shared by multiple SpringChains should be reported");
+
+	auto skippedNodeOverlap = parsed.value();
+	vrm10::SpringChain secondChain;
+	secondChain.joints.push_back(vrm10::SpringJoint{vrm10::NodeIndex{2}});
+	secondChain.center = vrm10::NodeIndex{2};
+	skippedNodeOverlap.springs.push_back(secondChain);
+	auto skippedNodeReport = vrm10::validate(skippedNodeOverlap, context);
+	bool foundSkippedOverlap = false;
+	bool foundCenterOverlap = false;
+	for (const auto& issue : skippedNodeReport.issues) {
+		if (issue.code == "duplicate-spring-joint") foundSkippedOverlap = true;
+		if (issue.code == "spring-center-overlaps-other-chain") foundCenterOverlap = true;
+	}
+	check(foundSkippedOverlap, "an intermediate skipped node shared by two SpringChains should be reported");
+	check(foundCenterOverlap, "center may not be a skipped intermediate node of another SpringChain");
 }
 
 
@@ -386,6 +401,29 @@ void testMToonAndHdrParsing() {
 		{"specVersion":"1.0","shadingToonyFactor":1.1}
 	)json"));
 	check(!badMtoon, "MToon factors above one should be rejected");
+
+	auto blendBack = vrm10::parseMaterialsMToon(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","renderQueueOffsetNumber":-9}
+	)json"));
+	check(blendBack.hasValue(), "MToon render queue offset should parse before material-mode validation");
+	if (blendBack) {
+		vrm10::ValidationContext context;
+		check(vrm10::validate(blendBack.value(), context).hasErrors(), "negative queue offset is invalid for OPAQUE material");
+		context.materialAlphaMode = vrm10::GltfAlphaMode::Blend;
+		check(vrm10::validate(blendBack.value(), context).empty(), "negative queue offset is valid for BLEND without Z write");
+	}
+
+	auto blendFront = vrm10::parseMaterialsMToon(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","transparentWithZWrite":true,"renderQueueOffsetNumber":9}
+	)json"));
+	check(blendFront.hasValue(), "MToon BLEND Z-write queue offset should parse");
+	if (blendFront) {
+		vrm10::ValidationContext context;
+		context.materialAlphaMode = vrm10::GltfAlphaMode::Blend;
+		check(vrm10::validate(blendFront.value(), context).empty(), "positive queue offset is valid for BLEND with Z write");
+		context.materialAlphaMode = vrm10::GltfAlphaMode::Mask;
+		check(vrm10::validate(blendFront.value(), context).hasErrors(), "nonzero queue offset is invalid for MASK material");
+	}
 
 	auto hdr = vrm10::parseHdrEmissiveMultiplier(nlohmann::json::parse(R"json(
 		{"emissiveMultiplier":2.5}
