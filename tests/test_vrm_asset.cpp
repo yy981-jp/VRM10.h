@@ -237,6 +237,9 @@ bool parseMaterialExtensions(
 		<< ", MToon: " << mtoonCount
 		<< ", legacy HDR emissive: " << legacyHdrCount
 		<< ", KHR emissive strength: " << khrEmissiveCount << '\n';
+	if (mtoonCount == 0) {
+		fail("The real VRM regression asset is expected to exercise VRMC_materials_mtoon");
+	}
 	return true;
 }
 
@@ -331,6 +334,7 @@ int main(int argc, char** argv) {
 	}
 
 	std::size_t springBoneCount = 0;
+	std::size_t extendedColliderCount = 0;
 	const auto springBoneIt = extensionsIt->find("VRMC_springBone");
 	if (springBoneIt != extensionsIt->end()) {
 		auto springBone = vrm10::parseSpringBone(*springBoneIt);
@@ -339,7 +343,27 @@ int main(int argc, char** argv) {
 		} else {
 			reportIssues("VRMC_springBone", vrm10::validate(springBone.value(), context));
 			springBoneCount = springBone.value().springs.size();
+			for (const auto& collider : springBone.value().colliders) {
+				if (collider.extended) ++extendedColliderCount;
+			}
 		}
+	}
+
+	bool usesExtendedCollider = false;
+	const auto extensionsUsedIt = gltf.find("extensionsUsed");
+	if (extensionsUsedIt != gltf.end() && extensionsUsedIt->is_array()) {
+		for (const auto& extension : *extensionsUsedIt) {
+			if (extension.is_string() && extension.get<std::string>() == "VRMC_springBone_extended_collider") {
+				usesExtendedCollider = true;
+				break;
+			}
+		}
+	}
+	if (usesExtendedCollider && extendedColliderCount == 0) {
+		fail("The asset declares VRMC_springBone_extended_collider but no collider extension was parsed");
+	}
+	if (springBoneCount == 0) {
+		fail("The real VRM regression asset is expected to contain SpringBone springs");
 	}
 
 	parseNodeConstraints(gltf, context.nodeCount);
@@ -347,6 +371,7 @@ int main(int argc, char** argv) {
 
 	std::cout << "Nodes: " << context.nodeCount
 		<< ", springs: " << springBoneCount
+		<< ", extended colliders: " << extendedColliderCount
 		<< ", materials: " << context.materialCount
 		<< ", textures: " << context.textureCount
 		<< ", images: " << context.imageCount << '\n';
