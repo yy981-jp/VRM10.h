@@ -348,8 +348,12 @@ inline ValidationReport validate(
 			state[current] = 1;
 			path.push_back(current);
 			const NodeIndex source = sourceOf(*constraints[current]);
-			if (source.value >= constraints.size() || !constraints[source.value]) break;
+			if (source.value >= constraints.size()) {
+				current = constraints.size();
+				break;
+			}
 			current = source.value;
+			if (!constraints[current]) break;
 		}
 		if (current < constraints.size() && constraints[current] && state[current] == 1) {
 			report.issues.push_back({
