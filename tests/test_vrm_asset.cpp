@@ -36,6 +36,9 @@ bool reportIssues(const std::string& label, const vrm10::ValidationReport& repor
 			hasErrors = true;
 		}
 	}
+	if (hasErrors) {
+		++failures;
+	}
 	return hasErrors;
 }
 
