@@ -2,6 +2,8 @@
 
 #include <vrm10/detail/json_reader.hpp>
 #include <vrm10/model.hpp>
+#include <vrm10/parser/spring_bone_extended_collider.hpp>
+#include <vrm10/parser/spring_bone_limit.hpp>
 
 #include <array>
 #include <cstddef>
@@ -126,7 +128,24 @@ inline Result<SpringCollider> parseSpringCollider(const Json& json, const std::s
 	}
 	auto shape = parseSpringColliderShape(*shapeIt, childPath(path, "shape"));
 	if (!shape) return shape.error();
-	return SpringCollider{NodeIndex{node.value()}, std::move(shape).value()};
+	SpringCollider result{NodeIndex{node.value()}, std::move(shape).value()};
+	const auto extensionsIt = json.find("extensions");
+	if (extensionsIt != json.end()) {
+		if (!extensionsIt->is_object()) {
+			return fail<SpringCollider>(ErrorCode::InvalidType, childPath(path, "extensions"), "Expected an object.");
+		}
+		const auto extendedIt = extensionsIt->find("VRMC_springBone_extended_collider");
+		if (extendedIt != extensionsIt->end()) {
+			auto extended = parseSpringBoneExtendedCollider(*extendedIt);
+			if (!extended) {
+				auto error = extended.error();
+				error.path = childPath(childPath(path, "extensions"), "VRMC_springBone_extended_collider") + error.path;
+				return error;
+			}
+			result.extended = std::move(extended).value();
+		}
+	}
+	return result;
 }
 
 inline Result<SpringColliderGroup> parseSpringColliderGroup(const Json& json, const std::string& path) {
@@ -178,6 +197,23 @@ inline Result<SpringJoint> parseSpringJoint(const Json& json, const std::string&
 		return fail<SpringJoint>(ErrorCode::InvalidValue, childPath(path, "dragForce"), "Value must be between zero and one.");
 	}
 	result.dragForce = dragForce.value();
+
+	const extensionsIt = json.find("extensions");
+	if (extensionsIt != json.end()) {
+		if (!extensionsIt->is_object()) {
+			return fail<SpringJoint>(ErrorCode::InvalidType, childPath(path, "extensions"), "Expected an object.");
+		}
+		const auto limitIt = extensionsIt->find("VRMC_springBone_limit");
+		if (limitIt != extensionsIt->end()) {
+			auto limit = parseSpringBoneLimit(*limitIt);
+			if (!limit) {
+				auto error = limit.error();
+				error.path = childPath(childPath(path, "extensions"), "VRMC_springBone_limit") + error.path;
+				return error;
+			}
+			result.limit = std::move(limit).value();
+		}
+	}
 	return result;
 }
 
