@@ -481,6 +481,10 @@ struct HdrEmissiveMultiplier {
 	float emissiveMultiplier{1.0f};
 };
 
+struct MaterialsEmissiveStrength {
+	float emissiveStrength{1.0f};
+};
+
 struct Vrm {
 	std::string specVersion;
 	Meta meta;
