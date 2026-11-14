@@ -9,7 +9,7 @@ VRM10.h uses independent validation layers because no single validator covers ev
 | C++ unit tests | Parser behavior, defaults, errors, indexes, regression cases | Our implementation contract |
 | Official JSON Schema | JSON structure, types, required fields, enums, array lengths, schema constraints | VRM Consortium schemas |
 | VRM asset validator | Full glTF/GLB structure, resource references, and supported VRM extension semantics | Independent implementation |
-| VRM10.h cross-reference validation | References against caller-supplied glTF counts/context | Our public validation API |
+| VRM10.h cross-reference validation | References against caller-supplied glTF counts/context, Humanoid bone hierarchy, SpringBone chain rules, node-constraint dependency cycles, and mesh/texture references | Our public validation API |
 
 A pass in one layer does not imply a pass in another.
 
@@ -102,6 +102,7 @@ As the implementation grows:
 - Add one or more small JSON fixtures per extension.
 - Add invalid fixtures for missing fields, invalid enums, invalid array sizes, and out-of-range values.
 - Add model-level .gltf fixtures for cross-reference behavior.
+- Supply complete `nodeParents` and `nodeMorphTargetCounts` context arrays in semantic tests when checking node hierarchy, mesh presence, and morph target index validity.
 - Add one or more genuine .vrm GLB fixtures when container/resource integration is ready.
 - Keep fixtures minimal and document what each one is intended to prove.
 - Never rely on a validator-clean model alone; pair it with direct parser tests.
