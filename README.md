@@ -185,6 +185,8 @@ See [memo/DEVELOPMENT.md](memo/DEVELOPMENT.md) for architecture, scope, API, dat
 
 ## Validation
 
-GitHub Actions runs C++17 tests with GCC and Clang, validates fixtures against the official VRM JSON Schema, and checks a model fixture with an independent VRM Validator. The external validator's JSON report is uploaded as a workflow artifact.
+GitHub Actions runs C++17 tests with GCC and Clang, validates fixtures against the official VRM JSON Schema, and checks both a minimal fixture and the real `init.vrm` release asset with an independent VRM Validator. The real asset is pinned by SHA-256 and is downloaded during CI rather than committed to this repository.
+
+The C++ integration test extracts only the GLB JSON chunk and passes the extension objects plus caller-derived glTF metadata to VRM10.h. It does not add a GLB loader to the library.
 
 See [memo/VALIDATION.md](memo/VALIDATION.md) for pinned upstream revisions, exact coverage, and known limitations.
