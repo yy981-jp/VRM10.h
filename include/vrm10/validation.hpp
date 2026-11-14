@@ -199,7 +199,8 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 		const auto springPath = detail::childPath("/springs", springIndex);
 		const auto jointsPath = detail::childPath(springPath, "joints");
 		for (std::size_t jointIndex = 0; jointIndex < spring.joints.size(); ++jointIndex) {
-			const auto nodePath = detail::childPath(detail::childPath(jointsPath, jointIndex), "node");
+			const auto jointPath = detail::childPath(jointsPath, jointIndex);
+			const auto nodePath = detail::childPath(jointPath, "node");
 			const NodeIndex node = spring.joints[jointIndex].node;
 			addNodeIssue(nodePath, node);
 			if (jointIndex + 1 == spring.joints.size() && spring.joints[jointIndex].limit) {
@@ -348,7 +349,7 @@ inline ValidationReport validate(
 			state[current] = 1;
 			path.push_back(current);
 			const NodeIndex source = sourceOf(*constraints[current]);
-			if (source.value >= constraints.size()) {
+			if (source.value >= nodeCount || source.value >= constraints.size()) {
 				current = constraints.size();
 				break;
 			}
