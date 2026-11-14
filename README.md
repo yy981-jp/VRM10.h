@@ -117,7 +117,7 @@ if (report.hasErrors()) {
 - [x] VRMC_materials_hdr_emissiveMultiplier (legacy compatibility)
 - [x] KHR_materials_emissive_strength
 - [x] Positive and negative official JSON Schema fixtures for all seven in-scope VRMC extensions and the Khronos KHR emissive-strength extension
-- [ ] Complete semantic validation coverage
+- [x] Real-model parser and cross-reference regression test using the pinned `init.vrm` asset
 
 The SpringBone parser is available independently through `parseSpringBone`:
 
@@ -173,7 +173,9 @@ const auto report = vrm10::validate(mtoon, context);
 
 The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`. Both parsers are available: the former for compatibility with existing VRM assets, and the latter for current glTF materials. Validation also checks the latter's prohibition on materials using `KHR_materials_unlit`.
 
-The implementation covers the listed extension data, but it is not a complete glTF parser, GLB loader, renderer, or physics runtime.
+For the stated VRM10.h responsibility, the parser, documented semantic checks, official-schema fixtures, and real-model regression test are in place. Semantic validation is intentionally limited to VRM extension rules and the glTF metadata supplied through `ValidationContext`; it is not a claim to validate every rule in the complete glTF 2.0 specification.
+
+The implementation is not a general glTF parser, GLB loader, renderer, physics runtime, or constraint evaluator.
 
 ## License
 
@@ -185,6 +187,8 @@ See [memo/DEVELOPMENT.md](memo/DEVELOPMENT.md) for architecture, scope, API, dat
 
 ## Validation
 
-GitHub Actions runs C++17 tests with GCC and Clang, validates fixtures against the official VRM JSON Schema, and checks a model fixture with an independent VRM Validator. The external validator's JSON report is uploaded as a workflow artifact.
+GitHub Actions runs C++17 tests with GCC and Clang, validates fixtures against the official VRM JSON Schema, and checks both a minimal fixture and the real `init.vrm` release asset with an independent VRM Validator. The real asset is pinned by SHA-256 and is downloaded during CI rather than committed to this repository.
+
+The C++ integration test extracts only the GLB JSON chunk and passes the extension objects plus caller-derived glTF metadata to VRM10.h. It does not add a GLB loader to the library.
 
 See [memo/VALIDATION.md](memo/VALIDATION.md) for pinned upstream revisions, exact coverage, and known limitations.

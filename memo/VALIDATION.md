@@ -117,3 +117,17 @@ When updating the VRM specification, glTF schema source, or external validator:
 3. Update the pinned revision in .github/workflows/ci.yml.
 4. Update the recorded revision and known coverage in this memo.
 5. Run the full workflow and review the new validation report.
+
+
+## Real VRM regression asset
+
+The C++ integration test and external validator also process the release asset:
+
+- URL: `https://github.com/yy981-jp/Scalix-Assets/releases/download/v0/init.vrm`
+- Size: 2,327,600 bytes
+- SHA-256: `f6049be486b6406d469388164305d34c1af1c53043f3c9cb05db80df72b507b7`
+- Source: `yy981-jp/Scalix-Assets`, release tag `v0`
+
+The binary is not vendored. CI downloads it and verifies the SHA-256 before testing. The pinned asset currently exercises 90 nodes, four SpringBone chains, the nested `VRMC_springBone_extended_collider` extension, one MToon material, one texture, and one image. `scripts/extract_glb_json.py` is a test-only utility that reads the GLB v2 header and JSON chunk; it does not load BIN data or become part of the public library API.
+
+`vrm10_asset_tests` uses the extracted JSON with nlohmann::json, invokes each VRM10.h parser for extensions present in the asset, builds `ValidationContext` from the glTF nodes/meshes/materials/textures/images arrays, and runs the cross-reference validators. The independent VRM Validator also runs on the original `.vrm` file.

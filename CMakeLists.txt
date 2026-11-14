@@ -58,6 +58,12 @@ if(VRM10_BUILD_TESTS)
 	)
 	target_link_libraries(vrm10_tests PRIVATE VRM10::VRM10)
 	add_test(NAME vrm10_tests COMMAND vrm10_tests)
+
+	# Integration test for a real VRM asset; receives extracted GLB JSON at runtime.
+	add_executable(vrm10_asset_tests
+		tests/test_vrm_asset.cpp
+	)
+	target_link_libraries(vrm10_asset_tests PRIVATE VRM10::VRM10)
 endif()
 
 install(TARGETS vrm10 EXPORT VRM10Targets)
