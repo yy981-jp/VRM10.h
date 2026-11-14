@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vrm10/model.hpp>
+#include <vrm10/parser/materials_mtoon.hpp>
+#include <vrm10/parser/node_constraint.hpp>
 #include <vrm10/parser/spring_bone.hpp>
 #include <vrm10/parser/vrm.hpp>
 
@@ -46,6 +48,7 @@ struct ValidationContext {
 	std::size_t materialCount{};
 	std::size_t imageCount{};
 	std::vector<std::optional<NodeIndex>> nodeParents;
+	std::size_t textureCount{};
 };
 
 inline ValidationReport validate(const Vrm& vrm, const ValidationContext& context) {
@@ -199,6 +202,14 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 			const auto nodePath = detail::childPath(detail::childPath(jointsPath, jointIndex), "node");
 			const NodeIndex node = spring.joints[jointIndex].node;
 			addNodeIssue(nodePath, node);
+			if (jointIndex + 1 == spring.joints.size() && spring.joints[jointIndex].limit) {
+				report.issues.push_back({
+					ValidationSeverity::Warning,
+					"spring-limit-on-tail-ignored",
+					detail::childPath(detail::childPath(jointPath, "extensions"), "VRMC_springBone_limit"),
+					"The limit extension on the final tail joint must be ignored."
+				});
+			}
 			if (!assignedJointNodes.emplace(node.value, nodePath).second) {
 				report.issues.push_back({
 					ValidationSeverity::Error,
@@ -266,6 +277,92 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 				}
 			}
 		}
+	}
+	return report;
+}
+
+
+inline ValidationReport validate(const MaterialsMToon& mtoon, const ValidationContext& context) {
+	ValidationReport report;
+	auto checkTexture = [&](const std::string& path, const std::optional<TextureInfo>& texture) {
+		if (texture && texture->index.value >= context.textureCount) {
+			report.issues.push_back({
+				ValidationSeverity::Error,
+				"texture-index-out-of-range",
+				path,
+				"Texture index " + std::to_string(texture->index.value) + " is outside the glTF textures array."
+			});
+		}
+	};
+	checkTexture("/shadeMultiplyTexture", mtoon.shadeMultiplyTexture);
+	checkTexture("/matcapTexture", mtoon.matcapTexture);
+	checkTexture("/rimMultiplyTexture", mtoon.rimMultiplyTexture);
+	checkTexture("/outlineWidthMultiplyTexture", mtoon.outlineWidthMultiplyTexture);
+	checkTexture("/uvAnimationMaskTexture", mtoon.uvAnimationMaskTexture);
+	if (mtoon.shadingShiftTexture) {
+		checkTexture("/shadingShiftTexture", mtoon.shadingShiftTexture->texture);
+	}
+	return report;
+}
+
+inline ValidationReport validate(
+	const std::vector<std::optional<NodeConstraint>>& constraints,
+	std::size_t nodeCount
+) {
+	ValidationReport report;
+	auto sourceOf = [](const NodeConstraint& constraint) -> NodeIndex {
+		return std::visit([](const auto& value) { return value.source; }, constraint.constraint);
+	};
+
+	for (std::size_t destination = 0; destination < constraints.size(); ++destination) {
+		if (!constraints[destination]) continue;
+		const NodeIndex source = sourceOf(*constraints[destination]);
+		const std::string path = detail::childPath(
+			detail::childPath(detail::childPath("/nodes", destination), "extensions"),
+			"VRMC_node_constraint"
+		) + "/constraint";
+		if (source.value >= nodeCount) {
+			report.issues.push_back({
+				ValidationSeverity::Error,
+				"constraint-source-index-out-of-range",
+				path,
+				"Constraint source node index is outside the glTF nodes array."
+			});
+		}
+		if (source.value == destination) {
+			report.issues.push_back({
+				ValidationSeverity::Error,
+				"constraint-source-is-destination",
+				path,
+				"A constraint source must not be the destination node itself."
+			});
+		}
+	}
+
+	std::vector<std::uint8_t> state(constraints.size(), 0);
+	for (std::size_t start = 0; start < constraints.size(); ++start) {
+		if (!constraints[start] || state[start] != 0) continue;
+		std::vector<std::size_t> path;
+		std::size_t current = start;
+		while (current < constraints.size() && constraints[current] && state[current] == 0) {
+			state[current] = 1;
+			path.push_back(current);
+			const NodeIndex source = sourceOf(*constraints[current]);
+			if (source.value >= constraints.size() || !constraints[source.value]) break;
+			current = source.value;
+		}
+		if (current < constraints.size() && constraints[current] && state[current] == 1) {
+			report.issues.push_back({
+				ValidationSeverity::Error,
+				"constraint-circular-dependency",
+				detail::childPath(
+					detail::childPath(detail::childPath("/nodes", current), "extensions"),
+					"VRMC_node_constraint"
+				) + "/constraint",
+				"Node constraints must not form a circular dependency."
+			});
+		}
+		for (const std::size_t node : path) state[node] = 2;
 	}
 	return report;
 }
