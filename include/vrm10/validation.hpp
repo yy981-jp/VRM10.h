@@ -53,6 +53,8 @@ struct ValidationContext {
 	std::size_t textureCount{};
 	// Alpha mode of the glTF material being validated alongside MToon.
 	GltfAlphaMode materialAlphaMode{GltfAlphaMode::Opaque};
+	// KHR_materials_emissive_strength must not be used with KHR_materials_unlit.
+	bool materialUsesUnlit{false};
 	// One entry per node when provided. nullopt means the node has no mesh.
 	std::vector<std::optional<std::size_t>> nodeMorphTargetCounts;
 };
@@ -524,6 +526,22 @@ inline ValidationReport validate(const MaterialsMToon& mtoon, const ValidationCo
 			"mtoon-render-queue-offset-invalid-for-alpha-mode",
 			"/renderQueueOffsetNumber",
 			"Render queue offset must be zero for OPAQUE/MASK, non-negative for BLEND with transparentWithZWrite, and non-positive for BLEND without it."
+		});
+	}
+	return report;
+}
+
+inline ValidationReport validate(
+	const MaterialsEmissiveStrength& emissiveStrength,
+	const ValidationContext& context
+) {
+	ValidationReport report;
+	if (context.materialUsesUnlit) {
+		report.issues.push_back({
+			ValidationSeverity::Error,
+			"emissive-strength-with-unlit-material",
+			"/extensions/KHR_materials_emissive_strength",
+			"KHR_materials_emissive_strength must not be used on a material that also uses KHR_materials_unlit."
 		});
 	}
 	return report;
