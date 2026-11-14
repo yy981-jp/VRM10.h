@@ -11,6 +11,20 @@
 namespace vrm10 {
 namespace detail {
 
+inline Result<std::array<float, 3>> readExtendedVector3(
+	const Json& object,
+	std::string_view key,
+	const std::string& parentPath,
+	const std::array<float, 3>& fallback
+) {
+	if (!object.is_object()) {
+		return fail<std::array<float, 3>>(ErrorCode::InvalidType, parentPath, "Expected an object.");
+	}
+	const auto it = object.find(std::string(key));
+	if (it == object.end()) return fallback;
+	return readFloatArray<3>(*it, childPath(parentPath, key), fallback, true);
+}
+
 inline Result<SphereExtendedCollider> parseExtendedSphere(const Json& json, const std::string& path) {
 	if (auto object = requireObject(json, path); !object) return object.error();
 	SphereExtendedCollider result;
