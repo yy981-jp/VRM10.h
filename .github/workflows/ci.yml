@@ -104,6 +104,8 @@ jobs:
             .ci/vrm-specification/specification/VRMC_node_constraint-1.0/schema/
           cp "$gltf_schema_dir/textureInfo.schema.json" \
             .ci/vrm-specification/specification/VRMC_materials_mtoon-1.0/schema/
+          khr_schema_dir=.ci/gltf-specification/extensions/2.0/Khronos/KHR_materials_emissive_strength/schema
+          cp "$gltf_schema_dir/glTFProperty.schema.json" "$khr_schema_dir/"
 
       - uses: actions/setup-python@v5
         with:
@@ -121,6 +123,7 @@ jobs:
           python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_springBone_extended_collider --fixtures tests/fixtures/vrmc_springBone_extended_collider
           python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_springBone_limit --fixtures tests/fixtures/vrmc_springBone_limit
           python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_materials_hdr_emissiveMultiplier --schema-filename VRMC_materials_hdr_emissiveMultiplier.json --fixtures tests/fixtures/vrmc_materials_hdr_emissiveMultiplier
+          python scripts/validate_vrm_schema.py --spec-root .ci/gltf-specification --extension KHR_materials_emissive_strength --schema-dir .ci/gltf-specification/extensions/2.0/Khronos/KHR_materials_emissive_strength/schema --schema-filename material.KHR_materials_emissive_strength.schema.json --fixtures tests/fixtures/khr_materials_emissive_strength
 
   external-vrm-validator:
     name: External VRM Validator
