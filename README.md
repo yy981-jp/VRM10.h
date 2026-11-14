@@ -116,7 +116,7 @@ if (report.hasErrors()) {
 - [x] VRMC_springBone_limit
 - [x] VRMC_materials_hdr_emissiveMultiplier (legacy compatibility)
 - [x] KHR_materials_emissive_strength
-- [x] Positive and negative official JSON Schema fixtures for all seven in-scope extensions
+- [x] Positive and negative official JSON Schema fixtures for all seven in-scope VRMC extensions and the Khronos KHR emissive-strength extension
 - [ ] Complete semantic validation coverage
 
 The SpringBone parser is available independently through `parseSpringBone`:
@@ -138,6 +138,7 @@ Cross-reference and semantic validation uses metadata supplied through `Validati
 - `nodeMorphTargetCounts`: one optional morph-target count per node. `std::nullopt` means the node has no mesh; a value (including zero) means it has a mesh with that many morph targets. This validates first-person mesh annotations and Expression morph-target bindings.
 - `textureCount`: the glTF texture array size, used to validate MToon texture references.
 - `materialAlphaMode`: the glTF material's `OPAQUE`, `MASK`, or `BLEND` mode, used with `transparentWithZWrite` to validate MToon's render queue offset.
+- `materialUsesUnlit`: whether the same glTF material has `KHR_materials_unlit`, used to enforce the KHR emissive-strength incompatibility rule.
 
 The context vectors must contain exactly one entry per node for their corresponding checks to run. When validating MToon, set `materialAlphaMode` from the same glTF material. The caller extracts this information from its chosen glTF representation; VRM10.h does not parse the full glTF document. SpringBone physics and runtime Expression evaluation remain out of scope.
 
@@ -170,7 +171,7 @@ context.textureCount = model.textures.size();
 const auto report = vrm10::validate(mtoon, context);
 ```
 
-The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`. Both parsers are available: the former for compatibility with existing VRM assets, and the latter for current glTF materials.
+The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`. Both parsers are available: the former for compatibility with existing VRM assets, and the latter for current glTF materials. Validation also checks the latter's prohibition on materials using `KHR_materials_unlit`.
 
 The implementation covers the listed extension data, but it is not a complete glTF parser, GLB loader, renderer, or physics runtime.
 
