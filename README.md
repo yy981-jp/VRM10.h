@@ -117,8 +117,9 @@ Cross-reference and semantic validation uses metadata supplied through `Validati
 - `nodeParents`: one optional parent index per glTF node; roots use `std::nullopt`. This enables Humanoid bone hierarchy checks and SpringBone joint/center-space checks.
 - `nodeMorphTargetCounts`: one optional morph-target count per node. `std::nullopt` means the node has no mesh; a value (including zero) means it has a mesh with that many morph targets. This validates first-person mesh annotations and Expression morph-target bindings.
 - `textureCount`: the glTF texture array size, used to validate MToon texture references.
+- `materialAlphaMode`: the glTF material's `OPAQUE`, `MASK`, or `BLEND` mode, used with `transparentWithZWrite` to validate MToon's render queue offset.
 
-The context vectors must contain exactly one entry per node for their corresponding checks to run. The caller extracts this information from its chosen glTF representation; VRM10.h does not parse the full glTF document. SpringBone physics and runtime Expression evaluation remain out of scope.
+The context vectors must contain exactly one entry per node for their corresponding checks to run. When validating MToon, set `materialAlphaMode` from the same glTF material. The caller extracts this information from its chosen glTF representation; VRM10.h does not parse the full glTF document. SpringBone physics and runtime Expression evaluation remain out of scope.
 
 ### Other extension parsers
 
