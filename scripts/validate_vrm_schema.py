@@ -35,16 +35,12 @@ def main() -> int:
 	schema = load_json(schema_path)
 
 	Draft4Validator.check_schema(schema)
-	shared_schema_names = (
-		"glTFProperty.schema.json",
-		"glTFid.schema.json",
-		"glTFChildOfRootProperty.schema.json",
-		"textureInfo.schema.json",
-	)
+	# Some pinned glTF schemas declare the Khronos schema base URI, so
+	# extension-local relative references are resolved against that URL.
+	# Alias every local schema file there to avoid network-dependent resolution.
 	shared_schema_store = {
-		f"https://schema.khronos.org/gltf/2.0/specification/{name}": load_json(schema_dir / name)
-		for name in shared_schema_names
-		if (schema_dir / name).is_file()
+		f"https://schema.khronos.org/gltf/2.0/specification/{path.name}": load_json(path)
+		for path in schema_dir.glob("*.json")
 	}
 	resolver = RefResolver(
 		base_uri=schema_dir.resolve().as_uri() + "/",
