@@ -82,7 +82,7 @@ A second historical project, saturday06/VRM-Validator, is a 2019 fork of Khronos
 
 The required CI jobs are:
 
-1. cpp: configure, compile standalone public-header smoke translation units, and run parser unit tests with GCC and Clang.
+1. cpp: configure, compile standalone public-header smoke translation units, run parser unit tests, install the exported CMake package, and build/run an independent consumer with GCC and Clang.
 2. vrm-schema: validate valid and intentionally invalid fixtures for all seven implemented VRM extension schemas against the pinned official schemas and their pinned shared glTF schemas.
 3. external-vrm-validator: build the pinned external validator, validate the minimal VRM-extension fixture, and upload its JSON report.
 
