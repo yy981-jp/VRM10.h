@@ -127,6 +127,14 @@ inline constexpr std::array<std::pair<std::string_view, LookAtType>, 2> LookAtTy
 	{"expression", LookAtType::Expression}
 }};
 
+inline constexpr std::array<std::string_view, 18> PresetExpressionNames{{
+	"happy", "angry", "sad", "relaxed", "surprised",
+	"aa", "ih", "ou", "ee", "oh",
+	"blink", "blinkLeft", "blinkRight",
+	"lookUp", "lookDown", "lookLeft", "lookRight",
+	"neutral"
+}};
+
 inline Result<Meta> parseMeta(const Json& json, const std::string& path) {
 	if (auto object = requireObject(json, path); !object) {
 		return object.error();
@@ -409,11 +417,18 @@ inline Result<Expressions> parseExpressions(const Json& json, const std::string&
 	}
 
 	for (const auto& namedExpression : result.custom) {
-		if (result.preset.find(namedExpression.first) != result.preset.end()) {
+		bool reservedPresetName = result.preset.find(namedExpression.first) != result.preset.end();
+		for (const auto presetName : PresetExpressionNames) {
+			if (presetName == namedExpression.first) {
+				reservedPresetName = true;
+				break;
+			}
+		}
+		if (reservedPresetName) {
 			return fail<Expressions>(
 				ErrorCode::InvalidValue,
 				childPath(childPath(path, "custom"), namedExpression.first),
-				"Custom expression names must not duplicate preset expression names."
+				"Custom expression names must not reuse a preset expression name."
 			);
 		}
 	}
@@ -429,6 +444,9 @@ inline Result<LookAtRangeMap> parseLookAtRangeMap(const Json& json, const std::s
 	}
 	auto outputScale = readOptionalFloat(json, "outputScale", path);
 	if (!outputScale) return outputScale.error();
+	if (outputScale.value() < 0.0f) {
+		return fail<LookAtRangeMap>(ErrorCode::InvalidValue, childPath(path, "outputScale"), "Value must be greater than or equal to zero.");
+	}
 	return LookAtRangeMap{inputMaxValue.value(), outputScale.value()};
 }
 
@@ -460,6 +478,23 @@ inline Result<LookAt> parseLookAt(const Json& json, const std::string& path) {
 	VRM10_READ_RANGE_MAP(rangeMapVerticalDown);
 	VRM10_READ_RANGE_MAP(rangeMapVerticalUp);
 #undef VRM10_READ_RANGE_MAP
+
+	if (result.type && *result.type == LookAtType::Expression) {
+#define VRM10_VALIDATE_EXPRESSION_RANGE_MAP(field) \
+		if (result.field && result.field->outputScale > 1.0f) { \
+			return fail<LookAt>( \
+				ErrorCode::InvalidValue, \
+				childPath(childPath(path, #field), "outputScale"), \
+				"Expression output scale must be between zero and one." \
+			); \
+		}
+
+		VRM10_VALIDATE_EXPRESSION_RANGE_MAP(rangeMapHorizontalInner);
+		VRM10_VALIDATE_EXPRESSION_RANGE_MAP(rangeMapHorizontalOuter);
+		VRM10_VALIDATE_EXPRESSION_RANGE_MAP(rangeMapVerticalDown);
+		VRM10_VALIDATE_EXPRESSION_RANGE_MAP(rangeMapVerticalUp);
+#undef VRM10_VALIDATE_EXPRESSION_RANGE_MAP
+	}
 
 	return result;
 }
