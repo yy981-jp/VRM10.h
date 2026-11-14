@@ -198,7 +198,7 @@ inline Result<SpringJoint> parseSpringJoint(const Json& json, const std::string&
 	}
 	result.dragForce = dragForce.value();
 
-	const extensionsIt = json.find("extensions");
+	const auto extensionsIt = json.find("extensions");
 	if (extensionsIt != json.end()) {
 		if (!extensionsIt->is_object()) {
 			return fail<SpringJoint>(ErrorCode::InvalidType, childPath(path, "extensions"), "Expected an object.");
