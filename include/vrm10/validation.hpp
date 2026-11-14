@@ -355,8 +355,57 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 		}
 	}
 
-	std::unordered_map<std::uint32_t, std::string> assignedJointNodes;
 	const bool hasNodeHierarchy = context.nodeParents.size() == context.nodeCount;
+	std::vector<std::unordered_map<std::uint32_t, std::string>> chainNodePaths(springBone.springs.size());
+
+	// A SpringChain also owns nodes skipped between two explicitly listed joints.
+	// These intermediate nodes participate in the spec's cross-chain overlap rule.
+	for (std::size_t springIndex = 0; springIndex < springBone.springs.size(); ++springIndex) {
+		const auto& spring = springBone.springs[springIndex];
+		const auto jointsPath = detail::childPath(detail::childPath("/springs", springIndex), "joints");
+		auto& members = chainNodePaths[springIndex];
+
+		for (std::size_t jointIndex = 0; jointIndex < spring.joints.size(); ++jointIndex) {
+			const NodeIndex node = spring.joints[jointIndex].node;
+			const std::string nodePath = detail::childPath(detail::childPath(jointsPath, jointIndex), "node");
+			members.emplace(node.value, nodePath);
+
+			if (!hasNodeHierarchy || jointIndex == 0) continue;
+			const NodeIndex previous = spring.joints[jointIndex - 1].node;
+			if (previous.value >= context.nodeCount || node.value >= context.nodeCount ||
+				!detail::isStrictAncestor(previous, node, context)) {
+				continue;
+			}
+
+			std::uint32_t current = node.value;
+			while (current != previous.value) {
+				members.emplace(current, nodePath);
+				const auto& parent = context.nodeParents[current];
+				if (!parent || parent->value >= context.nodeCount) break;
+				current = parent->value;
+			}
+			members.emplace(previous.value, detail::childPath(detail::childPath(jointsPath, jointIndex - 1), "node"));
+		}
+	}
+
+	std::unordered_map<std::uint32_t, std::pair<std::size_t, std::string>> memberOwners;
+	for (std::size_t springIndex = 0; springIndex < chainNodePaths.size(); ++springIndex) {
+		for (const auto& member : chainNodePaths[springIndex]) {
+			const auto inserted = memberOwners.emplace(
+				member.first,
+				std::make_pair(springIndex, member.second)
+			);
+			if (!inserted.second && inserted.first->second.first != springIndex) {
+				report.issues.push_back({
+					ValidationSeverity::Error,
+					"duplicate-spring-joint",
+					member.second,
+					"A node, including a skipped intermediate node, must not belong to more than one SpringChain."
+				});
+			}
+		}
+	}
+
 	for (std::size_t springIndex = 0; springIndex < springBone.springs.size(); ++springIndex) {
 		const auto& spring = springBone.springs[springIndex];
 		const auto springPath = detail::childPath("/springs", springIndex);
@@ -372,14 +421,6 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 					"spring-limit-on-tail-ignored",
 					detail::childPath(detail::childPath(jointPath, "extensions"), "VRMC_springBone_limit"),
 					"The limit extension on the final tail joint must be ignored."
-				});
-			}
-			if (!assignedJointNodes.emplace(node.value, nodePath).second) {
-				report.issues.push_back({
-					ValidationSeverity::Error,
-					"duplicate-spring-joint",
-					nodePath,
-					"A node must not be assigned to more than one SpringBone joint."
 				});
 			}
 			if (hasNodeHierarchy && jointIndex > 0) {
@@ -421,20 +462,21 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 					"The center node must be the first joint or one of its ancestors."
 				});
 			}
-			for (std::size_t otherSpringIndex = 0; otherSpringIndex < springBone.springs.size(); ++otherSpringIndex) {
+			for (std::size_t otherSpringIndex = 0; otherSpringIndex < chainNodePaths.size(); ++otherSpringIndex) {
 				if (otherSpringIndex == springIndex) continue;
-				for (const auto& otherJoint : springBone.springs[otherSpringIndex].joints) {
-					const NodeIndex otherNode = otherJoint.node;
+				for (const auto& member : chainNodePaths[otherSpringIndex]) {
+					const NodeIndex otherNode{member.first};
 					const bool sameNode = center == otherNode;
-					const bool descendantOfOtherJoint =
+					const bool descendantOfOtherChainNode =
 						hasNodeHierarchy && otherNode.value < context.nodeCount &&
-						center.value < context.nodeCount && detail::isAncestorOrSelf(otherNode, center, context);
-					if (sameNode || descendantOfOtherJoint) {
+						center.value < context.nodeCount &&
+						detail::isAncestorOrSelf(otherNode, center, context);
+					if (sameNode || descendantOfOtherChainNode) {
 						report.issues.push_back({
 							ValidationSeverity::Error,
 							"spring-center-overlaps-other-chain",
 							centerPath,
-							"The center node must not be a joint of another SpringChain or its descendant."
+							"The center node must not be a member of another SpringChain or a descendant of one of its nodes."
 						});
 						break;
 					}
