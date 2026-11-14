@@ -266,14 +266,20 @@ void testNodeConstraintParsingAndValidation() {
 	)json"));
 	check(!both, "node constraint must contain exactly one constraint kind");
 
-	std::vector<std::optional<vrm10::NodeConstraint>> graph(2);
-	graph[0] = roll.value();
-	graph[1] = rotation.value();
+	std::vector<std::optional<vrm10::NodeConstraint>> graph(3);
+	graph[0] = rotation.value();
+	graph[1] = roll.value();
 	auto validReport = vrm10::validate(graph, 3);
 	check(validReport.empty(), "acyclic in-range node constraints should validate");
 
-	graph[0] = rotation.value();
-	graph[1] = roll.value();
+	graph[0] = vrm10::NodeConstraint{
+		"1.0",
+		vrm10::RotationConstraint{vrm10::NodeIndex{1}, 1.0f}
+	};
+	graph[1] = vrm10::NodeConstraint{
+		"1.0",
+		vrm10::RotationConstraint{vrm10::NodeIndex{0}, 1.0f}
+	};
 	auto cycleReport = vrm10::validate(graph, 3);
 	check(cycleReport.hasErrors(), "circular node constraint dependencies should be reported");
 
