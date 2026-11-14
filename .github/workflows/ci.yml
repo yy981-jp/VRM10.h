@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpp:
+    name: C++17 (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build nlohmann-json3-dev
+          if [ "${{ matrix.compiler }}" = "clang++" ]; then
+            sudo apt-get install -y clang
+          fi
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DVRM10_BUILD_TESTS=ON
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Install package
+        run: cmake --install build --prefix "${{ github.workspace }}/build/install"
+
+      - name: Configure installed-package consumer
+        run: >-
+          cmake -S tests/package-consumer
+          -B build/package-consumer
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/build/install
+
+      - name: Build installed-package consumer
+        run: cmake --build build/package-consumer --parallel
+
+      - name: Test installed-package consumer
+        run: ctest --test-dir build/package-consumer --output-on-failure
+
+  vrm-schema:
+    name: Official VRM JSON Schema
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned VRM specification
+        uses: actions/checkout@v4
+        with:
+          repository: vrm-c/vrm-specification
+          ref: 94e82dd346fa6cf0337c4421728640e5252dd38e
+          path: .ci/vrm-specification
+
+      - name: Checkout pinned glTF 2.0 schemas
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/glTF
+          ref: 5961f897c1cfe51b8e270b2e905d529e2c6127d4
+          path: .ci/gltf-specification
+
+      - name: Add shared glTF schema dependencies
+        run: |
+          gltf_schema_dir=.ci/gltf-specification/specification/2.0/schema
+          for extension in \
+            VRMC_vrm \
+            VRMC_springBone \
+            VRMC_node_constraint \
+            VRMC_materials_mtoon \
+            VRMC_springBone_extended_collider \
+            VRMC_springBone_limit \
+            VRMC_materials_hdr_emissiveMultiplier
+          do
+            schema_dir=".ci/vrm-specification/specification/${extension}-1.0/schema"
+            cp "$gltf_schema_dir/glTFProperty.schema.json" "$schema_dir/"
+            cp "$gltf_schema_dir/glTFid.schema.json" "$schema_dir/"
+          done
+          cp "$gltf_schema_dir/glTFChildOfRootProperty.schema.json" \
+            .ci/vrm-specification/specification/VRMC_node_constraint-1.0/schema/
+          cp "$gltf_schema_dir/textureInfo.schema.json" \
+            .ci/vrm-specification/specification/VRMC_materials_mtoon-1.0/schema/
+          khr_schema_dir=.ci/gltf-specification/extensions/2.0/Khronos/KHR_materials_emissive_strength/schema
+          cp "$gltf_schema_dir/glTFProperty.schema.json" "$khr_schema_dir/"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install schema validator
+        run: python -m pip install --disable-pip-version-check jsonschema==4.23.0
+
+      - name: Validate official VRM JSON Schema fixtures
+        run: |
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_vrm --fixtures tests/fixtures/vrmc_vrm
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_springBone --fixtures tests/fixtures/vrmc_springBone
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_node_constraint --fixtures tests/fixtures/vrmc_node_constraint
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_materials_mtoon --fixtures tests/fixtures/vrmc_materials_mtoon
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_springBone_extended_collider --fixtures tests/fixtures/vrmc_springBone_extended_collider
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_springBone_limit --fixtures tests/fixtures/vrmc_springBone_limit
+          python scripts/validate_vrm_schema.py --spec-root .ci/vrm-specification --extension VRMC_materials_hdr_emissiveMultiplier --schema-filename VRMC_materials_hdr_emissiveMultiplier.json --fixtures tests/fixtures/vrmc_materials_hdr_emissiveMultiplier
+          python scripts/validate_vrm_schema.py --spec-root .ci/gltf-specification --extension KHR_materials_emissive_strength --schema-dir .ci/gltf-specification/extensions/2.0/Khronos/KHR_materials_emissive_strength/schema --schema-filename material.KHR_materials_emissive_strength.schema.json --fixtures tests/fixtures/khr_materials_emissive_strength
+
+  external-vrm-validator:
+    name: External VRM Validator
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned mrxz/vrm-validator
+        uses: actions/checkout@v4
+        with:
+          repository: mrxz/vrm-validator
+          ref: 43a0c8df2067d2d592fa18f12b824be8ce8ebb11
+          path: .ci/vrm-validator
+
+      - uses: dart-lang/setup-dart@v1.3
+        with:
+          sdk: "2.19.6"
+
+      - name: Build external validator
+        working-directory: .ci/vrm-validator
+        run: |
+          dart --version
+          dart pub get
+          dart run grinder exe
+
+      - name: Validate VRM extension fixture
+        run: |
+          mkdir -p build/vrm-validator
+          .ci/vrm-validator/build/bin/vrm_validator \
+            --all \
+            --stdout \
+            tests/fixtures/models/minimal.vrm.gltf \
+            > build/vrm-validator/report.json
+
+      - name: Upload external validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-vrm-validator-report
+          path: build/vrm-validator/report.json
+          if-no-files-found: warn

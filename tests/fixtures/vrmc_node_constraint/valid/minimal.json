@@ -1,0 +1,9 @@
+{
+	"specVersion": "1.0",
+	"constraint": {
+		"rotation": {
+			"source": 0,
+			"weight": 1.0
+		}
+	}
+}

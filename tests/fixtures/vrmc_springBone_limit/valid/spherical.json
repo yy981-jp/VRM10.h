@@ -1,0 +1,10 @@
+{
+	"specVersion": "1.0",
+	"limit": {
+		"spherical": {
+			"pitch": 1.0,
+			"yaw": 0.5,
+			"rotation": [0.0, 0.0, 0.0, 1.0]
+		}
+	}
+}

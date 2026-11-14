@@ -1,0 +1,13 @@
+{
+	"specVersion": "1.0",
+	"constraint": {
+		"roll": {
+			"source": 0,
+			"rollAxis": "X"
+		},
+		"aim": {
+			"source": 1,
+			"aimAxis": "PositiveY"
+		}
+	}
+}

@@ -1,0 +1,12 @@
+{
+	"specVersion": "1.0",
+	"springs": [
+		{
+			"joints": [
+				{
+					"node": 0
+				}
+			]
+		}
+	]
+}

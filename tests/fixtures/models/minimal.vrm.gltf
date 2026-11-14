@@ -1,0 +1,213 @@
+{
+	"asset": {
+		"version": "2.0",
+		"generator": "VRM10.h CI fixture"
+	},
+	"scene": 0,
+	"scenes": [
+		{
+			"nodes": [
+				0
+			]
+		}
+	],
+	"nodes": [
+		{
+			"name": "Root",
+			"children": [
+				1
+			]
+		},
+		{
+			"name": "Hips",
+			"children": [
+				2,
+				4,
+				7
+			]
+		},
+		{
+			"name": "Spine",
+			"children": [
+				3,
+				10,
+				13
+			]
+		},
+		{
+			"name": "Head",
+			"extensions": {
+				"VRMC_node_constraint": {
+					"specVersion": "1.0",
+					"constraint": {
+						"rotation": {
+							"source": 2,
+							"weight": 1
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "LeftUpperLeg",
+			"children": [
+				5
+			]
+		},
+		{
+			"name": "LeftLowerLeg",
+			"children": [
+				6
+			]
+		},
+		{
+			"name": "LeftFoot"
+		},
+		{
+			"name": "RightUpperLeg",
+			"children": [
+				8
+			]
+		},
+		{
+			"name": "RightLowerLeg",
+			"children": [
+				9
+			]
+		},
+		{
+			"name": "RightFoot"
+		},
+		{
+			"name": "LeftUpperArm",
+			"children": [
+				11
+			]
+		},
+		{
+			"name": "LeftLowerArm",
+			"children": [
+				12
+			]
+		},
+		{
+			"name": "LeftHand"
+		},
+		{
+			"name": "RightUpperArm",
+			"children": [
+				14
+			]
+		},
+		{
+			"name": "RightLowerArm",
+			"children": [
+				15
+			]
+		},
+		{
+			"name": "RightHand"
+		}
+	],
+	"extensionsUsed": [
+		"VRMC_vrm",
+		"VRMC_springBone",
+		"VRMC_node_constraint",
+		"VRMC_materials_mtoon",
+		"KHR_materials_emissive_strength"
+	],
+	"extensionsRequired": [
+		"VRMC_vrm",
+		"VRMC_springBone"
+	],
+	"extensions": {
+		"VRMC_vrm": {
+			"specVersion": "1.0",
+			"meta": {
+				"name": "VRM10.h validation fixture",
+				"authors": [
+					"VRM10.h CI"
+				],
+				"licenseUrl": "https://vrm.dev/licenses/1.0/"
+			},
+			"humanoid": {
+				"humanBones": {
+					"hips": {
+						"node": 1
+					},
+					"spine": {
+						"node": 2
+					},
+					"head": {
+						"node": 3
+					},
+					"leftUpperLeg": {
+						"node": 4
+					},
+					"leftLowerLeg": {
+						"node": 5
+					},
+					"leftFoot": {
+						"node": 6
+					},
+					"rightUpperLeg": {
+						"node": 7
+					},
+					"rightLowerLeg": {
+						"node": 8
+					},
+					"rightFoot": {
+						"node": 9
+					},
+					"leftUpperArm": {
+						"node": 10
+					},
+					"leftLowerArm": {
+						"node": 11
+					},
+					"leftHand": {
+						"node": 12
+					},
+					"rightUpperArm": {
+						"node": 13
+					},
+					"rightLowerArm": {
+						"node": 14
+					},
+					"rightHand": {
+						"node": 15
+					}
+				}
+			}
+		},
+		"VRMC_springBone": {
+			"specVersion": "1.0",
+			"springs": [
+				{
+					"name": "fixture",
+					"joints": [
+						{
+							"node": 1
+						},
+						{
+							"node": 2
+						}
+					]
+				}
+			]
+		}
+	},
+	"materials": [
+		{
+			"name": "MToon CI fixture",
+			"extensions": {
+				"VRMC_materials_mtoon": {
+					"specVersion": "1.0"
+				},
+				"KHR_materials_emissive_strength": {
+					"emissiveStrength": 2
+				}
+			}
+		}
+	]
+}

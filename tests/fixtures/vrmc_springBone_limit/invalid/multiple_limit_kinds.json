@@ -1,0 +1,11 @@
+{
+	"specVersion": "1.0",
+	"limit": {
+		"cone": {
+			"angle": 0.5
+		},
+		"hinge": {
+			"angle": 0.5
+		}
+	}
+}

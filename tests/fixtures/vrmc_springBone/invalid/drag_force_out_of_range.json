@@ -1,0 +1,13 @@
+{
+	"specVersion": "1.0",
+	"springs": [
+		{
+			"joints": [
+				{
+					"node": 0,
+					"dragForce": 1.1
+				}
+			]
+		}
+	]
+}
