@@ -35,7 +35,18 @@
 			]
 		},
 		{
-			"name": "Head"
+			"name": "Head",
+			"extensions": {
+				"VRMC_node_constraint": {
+					"specVersion": "1.0",
+					"constraint": {
+						"rotation": {
+							"source": 2,
+							"weight": 1
+						}
+					}
+				}
+			}
 		},
 		{
 			"name": "LeftUpperLeg",
@@ -100,7 +111,9 @@
 	],
 	"extensionsUsed": [
 		"VRMC_vrm",
-		"VRMC_springBone"
+		"VRMC_springBone",
+		"VRMC_node_constraint",
+		"VRMC_materials_mtoon"
 	],
 	"extensionsRequired": [
 		"VRMC_vrm",
@@ -182,5 +195,15 @@
 				}
 			]
 		}
-	}
+	},
+	"materials": [
+		{
+			"name": "MToon CI fixture",
+			"extensions": {
+				"VRMC_materials_mtoon": {
+					"specVersion": "1.0"
+				}
+			}
+		}
+	]
 }
