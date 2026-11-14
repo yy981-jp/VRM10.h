@@ -94,7 +94,7 @@ inline Result<SpringBoneLimit> parseSpringBoneLimit(const nlohmann::json& json) 
 	SpringBoneLimit result;
 	auto version = detail::readRequiredString(json, "specVersion", "");
 	if (!version) return version.error();
-	if (version.value() != "1.0") {
+	if (version.value() != "1.0" && version.value() != "1.0-draft") {
 		return Error{ErrorCode::UnsupportedVersion, "/specVersion", "Only VRMC_springBone_limit specification version 1.0 is supported."};
 	}
 	result.specVersion = std::move(version).value();
