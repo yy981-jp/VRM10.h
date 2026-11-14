@@ -231,6 +231,166 @@ void testSpringBoneCrossReferenceValidation() {
 	check(duplicateReport.hasErrors(), "a node shared by multiple SpringChains should be reported");
 }
 
+
+
+void testNodeConstraintParsingAndValidation() {
+	auto roll = vrm10::parseNodeConstraint(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","constraint":{"roll":{"source":0,"rollAxis":"Y"}}}
+	)json"));
+	check(roll.hasValue(), "roll constraint should parse");
+	if (roll) {
+		check(std::holds_alternative<vrm10::RollConstraint>(roll.value().constraint), "roll constraint variant should be selected");
+		check(std::get<vrm10::RollConstraint>(roll.value().constraint).weight == 1.0f, "constraint weight should default to one");
+	}
+
+	auto aim = vrm10::parseNodeConstraint(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","constraint":{"aim":{"source":1,"aimAxis":"NegativeZ","weight":0.25}}}
+	)json"));
+	check(aim.hasValue(), "aim constraint should parse");
+	if (aim) {
+		check(std::get<vrm10::AimConstraint>(aim.value().constraint).aimAxis == vrm10::AimAxis::NegativeZ, "aim axis enum should be parsed");
+	}
+
+	auto rotation = vrm10::parseNodeConstraint(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","constraint":{"rotation":{"source":2}}}
+	)json"));
+	check(rotation.hasValue(), "rotation constraint should parse");
+
+	auto badWeight = vrm10::parseNodeConstraint(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","constraint":{"rotation":{"source":2,"weight":1.1}}}
+	)json"));
+	check(!badWeight, "constraint weight above one should be rejected");
+
+	auto both = vrm10::parseNodeConstraint(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","constraint":{"roll":{"source":0,"rollAxis":"X"},"aim":{"source":0,"aimAxis":"PositiveY"}}}
+	)json"));
+	check(!both, "node constraint must contain exactly one constraint kind");
+
+	std::vector<std::optional<vrm10::NodeConstraint>> graph(2);
+	graph[0] = roll.value();
+	graph[1] = rotation.value();
+	auto validReport = vrm10::validate(graph, 3);
+	check(validReport.empty(), "acyclic in-range node constraints should validate");
+
+	graph[0] = rotation.value();
+	graph[1] = roll.value();
+	auto cycleReport = vrm10::validate(graph, 3);
+	check(cycleReport.hasErrors(), "circular node constraint dependencies should be reported");
+
+	graph[0] = roll.value();
+	graph[1].reset();
+	auto selfReport = vrm10::validate(graph, 3);
+	check(selfReport.hasErrors(), "constraint source equal to destination should be reported");
+}
+
+void testSpringBoneNestedExtensions() {
+	auto json = validSpringBoneJson();
+	json["colliders"][0]["extensions"]["VRMC_springBone_extended_collider"] = nlohmann::json::parse(R"json(
+		{
+			"specVersion": "1.0",
+			"shape": {
+				"sphere": {
+					"offset": [0.0, 0.0, 0.0],
+					"radius": 0.5,
+					"inside": true
+				}
+			}
+		}
+	)json");
+	json["springs"][0]["joints"][0]["extensions"]["VRMC_springBone_limit"] = nlohmann::json::parse(R"json(
+		{
+			"specVersion": "1.0",
+			"limit": {
+				"cone": {
+					"angle": 0.5,
+					"rotation": [0.0, 0.0, 0.0, 1.0]
+				}
+			}
+		}
+	)json");
+
+	auto parsed = vrm10::parseSpringBone(json);
+	check(parsed.hasValue(), "nested SpringBone extension data should parse");
+	if (!parsed) return;
+	check(parsed.value().colliders[0].extended.has_value(), "extended collider should be attached to its base collider");
+	if (parsed.value().colliders[0].extended && parsed.value().colliders[0].extended->shape) {
+		check(std::holds_alternative<vrm10::SphereExtendedCollider>(*parsed.value().colliders[0].extended->shape), "extended sphere shape should be parsed");
+		check(std::get<vrm10::SphereExtendedCollider>(*parsed.value().colliders[0].extended->shape).inside, "inside collider flag should be preserved");
+	}
+	check(parsed.value().springs[0].joints[0].limit.has_value(), "joint limit extension should be attached to its joint");
+	if (parsed.value().springs[0].joints[0].limit) {
+		check(std::holds_alternative<vrm10::ConeLimit>(parsed.value().springs[0].joints[0].limit->limit), "cone limit should be parsed");
+	}
+
+	auto badNormal = nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","shape":{"plane":{"normal":[0.0,2.0,0.0]}}}
+	)json");
+	check(!vrm10::parseSpringBoneExtendedCollider(badNormal), "non-normalized extended plane normal should be rejected");
+
+	auto badQuaternion = nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","limit":{"hinge":{"angle":1.0,"rotation":[0.0,0.0,0.0,0.5]}}}
+	)json");
+	check(!vrm10::parseSpringBoneLimit(badQuaternion), "non-unit SpringBone limit quaternion should be rejected");
+
+	auto tailLimitJson = validSpringBoneJson();
+	tailLimitJson["springs"][0]["joints"][1]["extensions"]["VRMC_springBone_limit"] = nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","limit":{"cone":{"angle":1.0}}}
+	)json");
+	auto tailLimit = vrm10::parseSpringBone(tailLimitJson);
+	check(tailLimit.hasValue(), "tail joint limit should remain parseable for diagnostics");
+	if (tailLimit) {
+		vrm10::ValidationContext context;
+		context.nodeCount = 4;
+		auto report = vrm10::validate(tailLimit.value(), context);
+		bool foundWarning = false;
+		for (const auto& issue : report.issues) {
+			if (issue.code == "spring-limit-on-tail-ignored" && issue.severity == vrm10::ValidationSeverity::Warning) {
+				foundWarning = true;
+			}
+		}
+		check(foundWarning, "limit on the final tail joint should produce an ignore warning");
+	}
+}
+
+void testMToonAndHdrParsing() {
+	auto mtoon = vrm10::parseMaterialsMToon(nlohmann::json::parse(R"json(
+		{
+			"specVersion": "1.0",
+			"shadeColorFactor": [0.7, 0.8, 0.9],
+			"shadeMultiplyTexture": {"index": 0},
+			"shadingShiftTexture": {"index": 1, "scale": -0.2},
+			"outlineWidthMode": "screenCoordinates",
+			"uvAnimationScrollXSpeedFactor": 0.5
+		}
+	)json"));
+	check(mtoon.hasValue(), "MToon material should parse");
+	if (mtoon) {
+		check(mtoon.value().shadingToonyFactor == 0.9f, "MToon shadingToonyFactor default should be applied");
+		check(mtoon.value().giEqualizationFactor == 0.9f, "MToon giEqualizationFactor default should be applied");
+		check(mtoon.value().shadeMultiplyTexture.has_value(), "MToon texture info should be parsed");
+		check(mtoon.value().shadingShiftTexture->scale == -0.2f, "shading shift texture scale should be preserved");
+		vrm10::ValidationContext context;
+		context.textureCount = 2;
+		check(vrm10::validate(mtoon.value(), context).empty(), "in-range MToon texture references should validate");
+		context.textureCount = 1;
+		check(vrm10::validate(mtoon.value(), context).hasErrors(), "out-of-range MToon texture references should be reported");
+	}
+
+	auto badMtoon = vrm10::parseMaterialsMToon(nlohmann::json::parse(R"json(
+		{"specVersion":"1.0","shadingToonyFactor":1.1}
+	)json"));
+	check(!badMtoon, "MToon factors above one should be rejected");
+
+	auto hdr = vrm10::parseHdrEmissiveMultiplier(nlohmann::json::parse(R"json(
+		{"emissiveMultiplier":2.5}
+	)json"));
+	check(hdr.hasValue() && hdr.value().emissiveMultiplier == 2.5f, "HDR emissive multiplier should parse");
+	auto badHdr = vrm10::parseHdrEmissiveMultiplier(nlohmann::json::parse(R"json(
+		{"emissiveMultiplier":-1.0}
+	)json"));
+	check(!badHdr, "negative HDR emissive multiplier should be rejected");
+}
+
 } // namespace
 
 int main() {
@@ -242,6 +402,9 @@ int main() {
 	testSpringBoneParsingAndDefaults();
 	testSpringBoneInvalidInput();
 	testSpringBoneCrossReferenceValidation();
+	testNodeConstraintParsingAndValidation();
+	testSpringBoneNestedExtensions();
+	testMToonAndHdrParsing();
 	if (failures != 0) {
 		std::cerr << failures << " test(s) failed.\n";
 		return EXIT_FAILURE;
