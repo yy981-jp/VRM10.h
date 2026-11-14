@@ -275,6 +275,13 @@ inline Result<MorphTargetBind> parseMorphTargetBind(const Json& json, const std:
 	if (!index) return index.error();
 	auto weight = readRequiredFloat(json, "weight", path);
 	if (!weight) return weight.error();
+	if (weight.value() < 0.0f || weight.value() > 1.0f) {
+		return fail<MorphTargetBind>(
+			ErrorCode::InvalidValue,
+			childPath(path, "weight"),
+			"Morph target weight must be between zero and one."
+		);
+	}
 	return MorphTargetBind{NodeIndex{node.value()}, index.value(), weight.value()};
 }
 
@@ -398,6 +405,16 @@ inline Result<Expressions> parseExpressions(const Json& json, const std::string&
 			auto expression = parseExpression(it.value(), childPath(customPath, it.key()));
 			if (!expression) return expression.error();
 			result.custom.emplace(it.key(), std::move(expression).value());
+		}
+	}
+
+	for (const auto& namedExpression : result.custom) {
+		if (result.preset.find(namedExpression.first) != result.preset.end()) {
+			return fail<Expressions>(
+				ErrorCode::InvalidValue,
+				childPath(childPath(path, "custom"), namedExpression.first),
+				"Custom expression names must not duplicate preset expression names."
+			);
 		}
 	}
 	return result;
