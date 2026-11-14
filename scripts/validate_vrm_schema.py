@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate VRMC_vrm JSON fixtures against the pinned VRM Consortium schema."""
+"""Validate extension JSON fixtures against a pinned VRM Consortium schema."""
 
 from __future__ import annotations
 
@@ -17,7 +17,10 @@ def load_json(path: Path) -> object:
 
 
 def format_error(error: object) -> str:
-	path = "/" + "/".join(str(part) for part in error.absolute_path)
+	def escape_pointer_token(token: object) -> str:
+		return str(token).replace("~", "~0").replace("/", "~1")
+
+	path = "/" + "/".join(escape_pointer_token(part) for part in error.absolute_path)
 	return f"{path}: {error.message}"
 
 
