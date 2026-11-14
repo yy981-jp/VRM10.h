@@ -30,6 +30,25 @@ ctest --test-dir build --output-on-failure
 
 With `VRM10_BUILD_TESTS=ON`, the build also compiles each public header in an isolated translation unit to catch accidental dependence on include order.
 
+## Installation
+
+Install the exported CMake package:
+
+```sh
+cmake -S . -B build -DVRM10_BUILD_TESTS=OFF
+cmake --build build
+cmake --install build --prefix /path/to/prefix
+```
+
+A consumer can then use the exported target:
+
+```cmake
+find_package(VRM10 CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE VRM10::VRM10)
+```
+
+The installed package resolves its required `nlohmann_json` dependency through CMake's `find_dependency`.
+
 ## Usage
 
 `parseVrm` receives the value of `extensions.VRMC_vrm`, not the complete glTF document:
