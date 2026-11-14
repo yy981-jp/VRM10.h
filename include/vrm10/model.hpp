@@ -47,6 +47,14 @@ struct SpringColliderGroupIndex {
 	}
 };
 
+struct TextureIndex {
+	std::uint32_t value{};
+
+	friend constexpr bool operator==(TextureIndex lhs, TextureIndex rhs) noexcept {
+		return lhs.value == rhs.value;
+	}
+};
+
 enum class HumanBone : std::uint8_t {
 	Hips,
 	Spine,
@@ -248,6 +256,64 @@ struct LookAt {
 	std::optional<LookAtRangeMap> rangeMapVerticalUp;
 };
 
+struct SphereExtendedCollider {
+	std::array<float, 3> offset{{0.0f, 0.0f, 0.0f}};
+	float radius{0.0f};
+	bool inside{false};
+};
+
+struct CapsuleExtendedCollider {
+	std::array<float, 3> offset{{0.0f, 0.0f, 0.0f}};
+	float radius{0.0f};
+	std::array<float, 3> tail{{0.0f, 0.0f, 0.0f}};
+	bool inside{false};
+};
+
+struct PlaneExtendedCollider {
+	std::array<float, 3> offset{{0.0f, 0.0f, 0.0f}};
+	std::array<float, 3> normal{{0.0f, 0.0f, 1.0f}};
+};
+
+using SpringBoneExtendedColliderShape = std::variant<
+	SphereExtendedCollider,
+	CapsuleExtendedCollider,
+	PlaneExtendedCollider
+>;
+
+struct SpringBoneExtendedCollider {
+	std::string specVersion;
+	std::optional<SpringBoneExtendedColliderShape> shape;
+};
+
+enum class SpringBoneLimitType : std::uint8_t {
+	Cone,
+	Hinge,
+	Spherical
+};
+
+struct ConeLimit {
+	float angle{0.0f};
+	std::array<float, 4> rotation{{0.0f, 0.0f, 0.0f, 1.0f}};
+};
+
+struct HingeLimit {
+	float angle{0.0f};
+	std::array<float, 4> rotation{{0.0f, 0.0f, 0.0f, 1.0f}};
+};
+
+struct SphericalLimit {
+	float pitch{0.0f};
+	float yaw{0.0f};
+	std::array<float, 4> rotation{{0.0f, 0.0f, 0.0f, 1.0f}};
+};
+
+using SpringBoneLimitShape = std::variant<ConeLimit, HingeLimit, SphericalLimit>;
+
+struct SpringBoneLimit {
+	std::string specVersion;
+	SpringBoneLimitShape limit;
+};
+
 struct SphereCollider {
 	std::array<float, 3> offset{{0.0f, 0.0f, 0.0f}};
 	float radius{0.0f};
@@ -264,6 +330,7 @@ using SpringColliderShape = std::variant<SphereCollider, CapsuleCollider>;
 struct SpringCollider {
 	NodeIndex node;
 	SpringColliderShape shape;
+	std::optional<SpringBoneExtendedCollider> extended;
 };
 
 struct SpringColliderGroup {
@@ -278,6 +345,7 @@ struct SpringJoint {
 	float gravityPower{0.0f};
 	std::array<float, 3> gravityDir{{0.0f, -1.0f, 0.0f}};
 	float dragForce{0.5f};
+	std::optional<SpringBoneLimit> limit;
 };
 
 struct SpringChain {
@@ -292,6 +360,95 @@ struct SpringBone {
 	std::vector<SpringCollider> colliders;
 	std::vector<SpringColliderGroup> colliderGroups;
 	std::vector<SpringChain> springs;
+};
+
+
+enum class RollAxis : std::uint8_t {
+	X,
+	Y,
+	Z
+};
+
+enum class AimAxis : std::uint8_t {
+	PositiveX,
+	NegativeX,
+	PositiveY,
+	NegativeY,
+	PositiveZ,
+	NegativeZ
+};
+
+struct RollConstraint {
+	NodeIndex source;
+	RollAxis rollAxis{RollAxis::X};
+	float weight{1.0f};
+};
+
+struct AimConstraint {
+	NodeIndex source;
+	AimAxis aimAxis{AimAxis::PositiveZ};
+	float weight{1.0f};
+};
+
+struct RotationConstraint {
+	NodeIndex source;
+	float weight{1.0f};
+};
+
+using NodeConstraintData = std::variant<RollConstraint, AimConstraint, RotationConstraint>;
+
+struct NodeConstraint {
+	std::string specVersion;
+	NodeConstraintData constraint;
+};
+
+
+struct TextureInfo {
+	TextureIndex index;
+	std::uint32_t texCoord{0};
+};
+
+struct ShadingShiftTextureInfo {
+	TextureInfo texture;
+	float scale{1.0f};
+};
+
+enum class OutlineWidthMode : std::uint8_t {
+	None,
+	WorldCoordinates,
+	ScreenCoordinates
+};
+
+struct MaterialsMToon {
+	std::string specVersion;
+	bool transparentWithZWrite{false};
+	std::int32_t renderQueueOffsetNumber{0};
+	std::array<float, 3> shadeColorFactor{{1.0f, 1.0f, 1.0f}};
+	std::optional<TextureInfo> shadeMultiplyTexture;
+	float shadingShiftFactor{0.0f};
+	std::optional<ShadingShiftTextureInfo> shadingShiftTexture;
+	float shadingToonyFactor{0.9f};
+	float giEqualizationFactor{0.9f};
+	std::array<float, 3> matcapFactor{{1.0f, 1.0f, 1.0f}};
+	std::optional<TextureInfo> matcapTexture;
+	std::array<float, 3> parametricRimColorFactor{{0.0f, 0.0f, 0.0f}};
+	std::optional<TextureInfo> rimMultiplyTexture;
+	float rimLightingMixFactor{1.0f};
+	float parametricRimFresnelPowerFactor{5.0f};
+	float parametricRimLiftFactor{0.0f};
+	OutlineWidthMode outlineWidthMode{OutlineWidthMode::None};
+	float outlineWidthFactor{0.0f};
+	std::optional<TextureInfo> outlineWidthMultiplyTexture;
+	std::array<float, 3> outlineColorFactor{{0.0f, 0.0f, 0.0f}};
+	float outlineLightingMixFactor{1.0f};
+	std::optional<TextureInfo> uvAnimationMaskTexture;
+	float uvAnimationScrollXSpeedFactor{0.0f};
+	float uvAnimationScrollYSpeedFactor{0.0f};
+	float uvAnimationRotationSpeedFactor{0.0f};
+};
+
+struct HdrEmissiveMultiplier {
+	float emissiveMultiplier{1.0f};
 };
 
 struct Vrm {
