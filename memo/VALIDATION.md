@@ -9,7 +9,7 @@ VRM10.h uses independent validation layers because no single validator covers ev
 | C++ unit tests | Parser behavior, defaults, errors, indexes, regression cases | Our implementation contract |
 | Official JSON Schema | JSON structure, types, required fields, enums, array lengths, schema constraints | VRM Consortium schemas |
 | VRM asset validator | Full glTF/GLB structure, resource references, and supported VRM extension semantics | Independent implementation |
-| VRM10.h cross-reference validation | References against caller-supplied glTF counts/context, Humanoid bone hierarchy, SpringBone chain rules, node-constraint dependency cycles, and mesh/texture references | Our public validation API |
+| VRM10.h cross-reference validation | References against caller-supplied glTF counts/context, Humanoid bone hierarchy, SpringBone chain membership including skipped nodes, center-space restrictions, node-constraint dependency cycles, and mesh/texture/material-mode references | Our public validation API |
 
 A pass in one layer does not imply a pass in another.
 
