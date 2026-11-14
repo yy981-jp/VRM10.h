@@ -241,7 +241,7 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 		}
 	}
 
-	if (vrm.meta.thumbnailImage && vrm.meta.thumbnailImage.value() >= context.imageCount) {
+	if (vrm.meta.thumbnailImage && vrm.meta.thumbnailImage->value >= context.imageCount) {
 		report.issues.push_back({
 			ValidationSeverity::Error,
 			"image-index-out-of-range",
@@ -288,12 +288,12 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 								nodePath,
 								"Morph target binds must reference a node that has a mesh."
 							});
-						} else if (bind.index >= *targetCount) {
+						} else if (bind.index.value >= *targetCount) {
 							report.issues.push_back({
 								ValidationSeverity::Error,
 								"morph-target-index-out-of-range",
 								indexPath,
-								"Morph target index " + std::to_string(bind.index) +
+								"Morph target index " + std::to_string(bind.index.value) +
 									" is outside the target mesh morph target array."
 							});
 						}
