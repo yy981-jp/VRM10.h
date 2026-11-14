@@ -107,7 +107,7 @@ if (report.hasErrors()) {
 - [x] Project skeleton and CMake package target
 - [x] Result and diagnostic types
 - [x] VRMC_vrm: Meta, Humanoid, FirstPerson, Expressions, LookAt
-- [x] Basic cross-reference validation for VRMC_vrm and VRMC_springBone
+- [x] Extension-specific cross-reference and semantic validation for VRMC_vrm, VRMC_springBone, VRMC_node_constraint, and VRMC_materials_mtoon
 - [x] Optional TinyGLTF-to-JSON utility
 - [x] VRMC_springBone
 - [x] VRMC_node_constraint
@@ -160,7 +160,7 @@ std::vector<std::optional<vrm10::NodeConstraint>> constraints(nodes.size());
 const auto report = vrm10::validate(constraints, nodes.size());
 ```
 
-MToon texture indexes are checked against the glTF texture array:
+MToon texture indexes and material-mode-dependent render queue offsets are checked against glTF context:
 
 ```cpp
 vrm10::ValidationContext context;
