@@ -498,6 +498,20 @@ void testVrmHierarchyAndMorphTargetValidation() {
 	}
 	check(foundNoMeshIssue, "morph target bind to node without mesh should be reported");
 
+	auto annotatedVrm = parsed.value();
+	vrm10::FirstPerson firstPerson;
+	firstPerson.meshAnnotations.push_back({
+		vrm10::NodeIndex{0},
+		vrm10::FirstPersonType::Both
+	});
+	annotatedVrm.firstPerson = std::move(firstPerson);
+	auto firstPersonReport = vrm10::validate(annotatedVrm, context);
+	bool foundFirstPersonNoMeshIssue = false;
+	for (const auto& issue : firstPersonReport.issues) {
+		if (issue.code == "first-person-node-has-no-mesh") foundFirstPersonNoMeshIssue = true;
+	}
+	check(foundFirstPersonNoMeshIssue, "first-person annotation to node without mesh should be reported");
+
 	auto invalidHierarchy = context;
 	invalidHierarchy.nodeParents[2] = vrm10::NodeIndex{0};
 	auto hierarchyReport = vrm10::validate(parsed.value(), invalidHierarchy);
