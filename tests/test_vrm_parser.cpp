@@ -425,7 +425,6 @@ void testExpressionSemanticParsing() {
 	auto duplicateName = validVrmJson();
 	duplicateName["expressions"] = nlohmann::json::parse(R"json(
 		{
-			"preset": {"happy": {}},
 			"custom": {"happy": {}}
 		}
 	)json");
@@ -533,6 +532,32 @@ void testVrmHierarchyAndMorphTargetValidation() {
 		if (issue.code == "missing-humanoid-parent-bone") foundMissingParentIssue = true;
 	}
 	check(foundMissingParentIssue, "upperChest without its required chest parent should be reported");
+
+	auto invalidLookAtScale = validVrmJson();
+	invalidLookAtScale["lookAt"] = nlohmann::json::parse(R"json(
+		{
+			"type": "expression",
+			"rangeMapHorizontalOuter": {
+				"inputMaxValue": 90.0,
+				"outputScale": 1.2
+			}
+		}
+	)json");
+	auto lookAtScaleResult = vrm10::parseVrm(invalidLookAtScale);
+	check(!lookAtScaleResult, "LookAt expression output scale above one should be rejected");
+
+	auto negativeLookAtScale = validVrmJson();
+	negativeLookAtScale["lookAt"] = nlohmann::json::parse(R"json(
+		{
+			"type": "bone",
+			"rangeMapVerticalUp": {
+				"inputMaxValue": 90.0,
+				"outputScale": -1.0
+			}
+		}
+	)json");
+	auto negativeScaleResult = vrm10::parseVrm(negativeLookAtScale);
+	check(!negativeScaleResult, "negative LookAt output scale should be rejected");
 }
 
 } // namespace
