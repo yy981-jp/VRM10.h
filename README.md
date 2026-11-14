@@ -112,7 +112,13 @@ if (!springBone) {
 const vrm10::SpringBone& data = springBone.value();
 ```
 
-Cross-reference validation for SpringBone checks node, collider, and collider-group indexes. When `ValidationContext::nodeParents` is supplied with one optional parent per glTF node, it also checks joint ancestry and center-space constraints. It does not evaluate or simulate SpringBone physics.
+Cross-reference and semantic validation uses metadata supplied through `ValidationContext`:
+
+- `nodeParents`: one optional parent index per glTF node; roots use `std::nullopt`. This enables Humanoid bone hierarchy checks and SpringBone joint/center-space checks.
+- `nodeMorphTargetCounts`: one optional morph-target count per node. `std::nullopt` means the node has no mesh; a value (including zero) means it has a mesh with that many morph targets. This validates first-person mesh annotations and Expression morph-target bindings.
+- `textureCount`: the glTF texture array size, used to validate MToon texture references.
+
+The context vectors must contain exactly one entry per node for their corresponding checks to run. The caller extracts this information from its chosen glTF representation; VRM10.h does not parse the full glTF document. SpringBone physics and runtime Expression evaluation remain out of scope.
 
 ### Other extension parsers
 
