@@ -14,7 +14,7 @@ namespace detail {
 inline Result<SphereExtendedCollider> parseExtendedSphere(const Json& json, const std::string& path) {
 	if (auto object = requireObject(json, path); !object) return object.error();
 	SphereExtendedCollider result;
-	auto offset = readOptionalVector3(json, "offset", path, result.offset);
+	auto offset = readExtendedVector3(json, "offset", path, result.offset);
 	if (!offset) return offset.error();
 	result.offset = offset.value();
 	auto radius = readOptionalFloat(json, "radius", path, 0.0f);
@@ -32,7 +32,7 @@ inline Result<SphereExtendedCollider> parseExtendedSphere(const Json& json, cons
 inline Result<CapsuleExtendedCollider> parseExtendedCapsule(const Json& json, const std::string& path) {
 	if (auto object = requireObject(json, path); !object) return object.error();
 	CapsuleExtendedCollider result;
-	auto offset = readOptionalVector3(json, "offset", path, result.offset);
+	auto offset = readExtendedVector3(json, "offset", path, result.offset);
 	if (!offset) return offset.error();
 	result.offset = offset.value();
 	auto radius = readOptionalFloat(json, "radius", path, 0.0f);
@@ -41,7 +41,7 @@ inline Result<CapsuleExtendedCollider> parseExtendedCapsule(const Json& json, co
 		return fail<CapsuleExtendedCollider>(ErrorCode::InvalidValue, childPath(path, "radius"), "Radius must be greater than or equal to zero.");
 	}
 	result.radius = radius.value();
-	auto tail = readOptionalVector3(json, "tail", path, result.tail);
+	auto tail = readExtendedVector3(json, "tail", path, result.tail);
 	if (!tail) return tail.error();
 	result.tail = tail.value();
 	auto inside = readOptionalBool(json, "inside", path, false);
@@ -53,12 +53,12 @@ inline Result<CapsuleExtendedCollider> parseExtendedCapsule(const Json& json, co
 inline Result<PlaneExtendedCollider> parseExtendedPlane(const Json& json, const std::string& path) {
 	if (auto object = requireObject(json, path); !object) return object.error();
 	PlaneExtendedCollider result;
-	auto offset = readOptionalVector3(json, "offset", path, result.offset);
+	auto offset = readExtendedVector3(json, "offset", path, result.offset);
 	if (!offset) return offset.error();
 	result.offset = offset.value();
 
 	const std::array<float, 3> defaultNormal{{0.0f, 0.0f, 1.0f}};
-	auto normal = readOptionalVector3(json, "normal", path, defaultNormal);
+	auto normal = readExtendedVector3(json, "normal", path, defaultNormal);
 	if (!normal) return normal.error();
 	result.normal = normal.value();
 
