@@ -94,7 +94,8 @@ if (report.hasErrors()) {
 - [x] VRMC_springBone_extended_collider
 - [x] VRMC_springBone_limit
 - [x] VRMC_materials_hdr_emissiveMultiplier
-- [ ] Full schema and semantic validation coverage
+- [x] Positive and negative official JSON Schema fixtures for all seven in-scope extensions
+- [ ] Complete semantic validation coverage
 
 The SpringBone parser is available independently through `parseSpringBone`:
 
@@ -111,7 +112,33 @@ const vrm10::SpringBone& data = springBone.value();
 
 Cross-reference validation for SpringBone checks node, collider, and collider-group indexes. When `ValidationContext::nodeParents` is supplied with one optional parent per glTF node, it also checks joint ancestry and center-space constraints. It does not evaluate or simulate SpringBone physics.
 
-Independent parsers are also available for `VRMC_node_constraint`, `VRMC_materials_mtoon`, `VRMC_springBone_extended_collider`, `VRMC_springBone_limit`, and `VRMC_materials_hdr_emissiveMultiplier`. The SpringBone parser automatically reads the extended collider and limit objects attached to collider/joint `extensions` fields.
+### Other extension parsers
+
+The remaining parsers accept the JSON value of the extension at its glTF-defined location:
+
+- `parseNodeConstraint`: a node's `extensions.VRMC_node_constraint`
+- `parseMaterialsMToon`: a material's `extensions.VRMC_materials_mtoon`
+- `parseHdrEmissiveMultiplier`: a material's `extensions.VRMC_materials_hdr_emissiveMultiplier`
+- `parseSpringBoneExtendedCollider`: standalone parsing of a collider's nested extension
+- `parseSpringBoneLimit`: standalone parsing of a joint's nested extension
+
+The SpringBone parser already invokes the last two parsers for `extensions.VRMC_springBone_extended_collider` on each collider and `extensions.VRMC_springBone_limit` on each joint.
+
+Node constraints are validated as a node-indexed array so source references and dependency cycles can be checked together:
+
+```cpp
+std::vector<std::optional<vrm10::NodeConstraint>> constraints(nodes.size());
+// Parse each node's VRMC_node_constraint and assign it to constraints[i].
+const auto report = vrm10::validate(constraints, nodes.size());
+```
+
+MToon texture indexes are checked against the glTF texture array:
+
+```cpp
+vrm10::ValidationContext context;
+context.textureCount = model.textures.size();
+const auto report = vrm10::validate(mtoon, context);
+```
 
 The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`; its parser is retained for compatibility with existing VRM assets.
 
