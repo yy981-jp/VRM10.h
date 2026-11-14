@@ -35,9 +35,21 @@ def main() -> int:
 	schema = load_json(schema_path)
 
 	Draft4Validator.check_schema(schema)
+	shared_schema_names = (
+		"glTFProperty.schema.json",
+		"glTFid.schema.json",
+		"glTFChildOfRootProperty.schema.json",
+		"textureInfo.schema.json",
+	)
+	shared_schema_store = {
+		f"https://schema.khronos.org/gltf/2.0/specification/{name}": load_json(schema_dir / name)
+		for name in shared_schema_names
+		if (schema_dir / name).is_file()
+	}
 	resolver = RefResolver(
 		base_uri=schema_dir.resolve().as_uri() + "/",
 		referrer=schema,
+		store=shared_schema_store,
 	)
 	validator = Draft4Validator(schema, resolver=resolver)
 
