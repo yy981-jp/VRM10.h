@@ -5,7 +5,10 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace vrm10 {
