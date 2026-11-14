@@ -397,6 +397,130 @@ void testMToonAndHdrParsing() {
 	check(!badHdr, "negative HDR emissive multiplier should be rejected");
 }
 
+
+
+void testExpressionSemanticParsing() {
+	auto invalidWeight = validVrmJson();
+	invalidWeight["expressions"] = nlohmann::json::parse(R"json(
+		{
+			"custom": {
+				"smile": {
+					"morphTargetBinds": [
+						{"node": 2, "index": 0, "weight": 1.01}
+					]
+				}
+			}
+		}
+	)json");
+	auto weightResult = vrm10::parseVrm(invalidWeight);
+	check(!weightResult, "MorphTargetBind weight above one should be rejected");
+	if (!weightResult) {
+		check(weightResult.error().code == vrm10::ErrorCode::InvalidValue, "invalid morph weight should report InvalidValue");
+		check(
+			weightResult.error().path == "/expressions/custom/smile/morphTargetBinds/0/weight",
+			"invalid morph weight should identify its JSON Pointer"
+		);
+	}
+
+	auto duplicateName = validVrmJson();
+	duplicateName["expressions"] = nlohmann::json::parse(R"json(
+		{
+			"preset": {"happy": {}},
+			"custom": {"happy": {}}
+		}
+	)json");
+	auto duplicateResult = vrm10::parseVrm(duplicateName);
+	check(!duplicateResult, "custom expression names must not duplicate preset names");
+	if (!duplicateResult) {
+		check(
+			duplicateResult.error().path == "/expressions/custom/happy",
+			"duplicate expression error should identify the custom expression name"
+		);
+	}
+}
+
+void testVrmHierarchyAndMorphTargetValidation() {
+	auto json = validVrmJson();
+	json["expressions"] = nlohmann::json::parse(R"json(
+		{
+			"custom": {
+				"smile": {
+					"morphTargetBinds": [
+						{"node": 2, "index": 0, "weight": 0.5}
+					]
+				}
+			}
+		}
+	)json");
+	auto parsed = vrm10::parseVrm(json);
+	check(parsed.hasValue(), "VRM semantic validation fixture should parse");
+	if (!parsed) return;
+
+	vrm10::ValidationContext context;
+	context.nodeCount = 15;
+	context.nodeParents = {
+		std::nullopt,
+		vrm10::NodeIndex{0},
+		vrm10::NodeIndex{1},
+		vrm10::NodeIndex{0},
+		vrm10::NodeIndex{3},
+		vrm10::NodeIndex{4},
+		vrm10::NodeIndex{0},
+		vrm10::NodeIndex{6},
+		vrm10::NodeIndex{7},
+		vrm10::NodeIndex{1},
+		vrm10::NodeIndex{9},
+		vrm10::NodeIndex{10},
+		vrm10::NodeIndex{1},
+		vrm10::NodeIndex{12},
+		vrm10::NodeIndex{13}
+	};
+	context.nodeMorphTargetCounts.resize(context.nodeCount);
+	context.nodeMorphTargetCounts[2] = 1;
+	auto validReport = vrm10::validate(parsed.value(), context);
+	check(validReport.empty(), "valid humanoid hierarchy and morph target reference should pass");
+
+	auto invalidMorph = parsed.value();
+	invalidMorph.expressions->custom.at("smile").morphTargetBinds[0].index = 1;
+	auto morphReport = vrm10::validate(invalidMorph, context);
+	bool foundMorphIndexIssue = false;
+	for (const auto& issue : morphReport.issues) {
+		if (issue.code == "morph-target-index-out-of-range") foundMorphIndexIssue = true;
+	}
+	check(foundMorphIndexIssue, "out-of-range morph target index should be reported");
+
+	auto nodeWithoutMesh = context;
+	nodeWithoutMesh.nodeMorphTargetCounts[2] = std::nullopt;
+	auto noMeshReport = vrm10::validate(parsed.value(), nodeWithoutMesh);
+	bool foundNoMeshIssue = false;
+	for (const auto& issue : noMeshReport.issues) {
+		if (issue.code == "morph-target-node-has-no-mesh") foundNoMeshIssue = true;
+	}
+	check(foundNoMeshIssue, "morph target bind to node without mesh should be reported");
+
+	auto invalidHierarchy = context;
+	invalidHierarchy.nodeParents[2] = vrm10::NodeIndex{0};
+	auto hierarchyReport = vrm10::validate(parsed.value(), invalidHierarchy);
+	bool foundHierarchyIssue = false;
+	for (const auto& issue : hierarchyReport.issues) {
+		if (issue.code == "humanoid-bone-not-descendant-of-parent") foundHierarchyIssue = true;
+	}
+	check(foundHierarchyIssue, "invalid humanoid parent-child relationship should be reported");
+
+	auto missingRequiredParent = parsed.value();
+	missingRequiredParent.humanoid[vrm10::HumanBone::UpperChest] = vrm10::NodeIndex{15};
+	auto expandedContext = context;
+	expandedContext.nodeCount = 16;
+	expandedContext.nodeParents.resize(16);
+	expandedContext.nodeMorphTargetCounts.resize(16);
+	auto parentReport = vrm10::validate(missingRequiredParent, expandedContext);
+	bool foundMissingParentIssue = false;
+	for (const auto& issue : parentReport.issues) {
+		if (issue.code == "missing-humanoid-parent-bone") foundMissingParentIssue = true;
+	}
+	check(foundMissingParentIssue, "upperChest without its required chest parent should be reported");
+}
+
 } // namespace
 
 int main() {
@@ -405,6 +529,8 @@ int main() {
 	testMissingRequiredBone();
 	testOptionalExtensionData();
 	testValidation();
+	testExpressionSemanticParsing();
+	testVrmHierarchyAndMorphTargetValidation();
 	testSpringBoneParsingAndDefaults();
 	testSpringBoneInvalidInput();
 	testSpringBoneCrossReferenceValidation();
