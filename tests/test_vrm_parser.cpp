@@ -302,6 +302,15 @@ void testNodeConstraintParsingAndValidation() {
 	graph[1].reset();
 	auto selfReport = vrm10::validate(graph, 3);
 	check(selfReport.hasErrors(), "constraint source equal to destination should be reported");
+
+	auto shortGraph = graph;
+	shortGraph.pop_back();
+	auto sizeReport = vrm10::validate(shortGraph, 3);
+	bool foundSizeMismatch = false;
+	for (const auto& issue : sizeReport.issues) {
+		if (issue.code == "constraint-array-size-mismatch") foundSizeMismatch = true;
+	}
+	check(foundSizeMismatch, "node constraint data must contain one optional slot per glTF node");
 }
 
 void testSpringBoneNestedExtensions() {
