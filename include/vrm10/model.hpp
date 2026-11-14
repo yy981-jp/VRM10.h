@@ -55,6 +55,30 @@ struct TextureIndex {
 	}
 };
 
+struct ImageIndex {
+	std::uint32_t value{};
+
+	friend constexpr bool operator==(ImageIndex lhs, ImageIndex rhs) noexcept {
+		return lhs.value == rhs.value;
+	}
+};
+
+struct MorphTargetIndex {
+	std::uint32_t value{};
+
+	friend constexpr bool operator==(MorphTargetIndex lhs, MorphTargetIndex rhs) noexcept {
+		return lhs.value == rhs.value;
+	}
+};
+
+struct TexCoordIndex {
+	std::uint32_t value{};
+
+	friend constexpr bool operator==(TexCoordIndex lhs, TexCoordIndex rhs) noexcept {
+		return lhs.value == rhs.value;
+	}
+};
+
 enum class HumanBone : std::uint8_t {
 	Hips,
 	Spine,
@@ -159,7 +183,7 @@ struct Meta {
 	std::string contactInformation;
 	std::vector<std::string> references;
 	std::string thirdPartyLicenses;
-	std::optional<std::uint32_t> thumbnailImage;
+	std::optional<ImageIndex> thumbnailImage;
 	std::string licenseUrl;
 	AvatarPermission avatarPermission{AvatarPermission::OnlyAuthor};
 	bool allowExcessivelyViolentUsage{false};
@@ -206,7 +230,7 @@ enum class ExpressionOverrideType : std::uint8_t {
 
 struct MorphTargetBind {
 	NodeIndex node;
-	std::uint32_t index{};
+	MorphTargetIndex index;
 	float weight{};
 };
 
@@ -405,7 +429,7 @@ struct NodeConstraint {
 
 struct TextureInfo {
 	TextureIndex index;
-	std::uint32_t texCoord{0};
+	TexCoordIndex texCoord{};
 };
 
 struct ShadingShiftTextureInfo {
