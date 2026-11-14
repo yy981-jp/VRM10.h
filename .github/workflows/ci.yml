@@ -46,6 +46,24 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: Install package
+        run: cmake --install build --prefix "${{ github.workspace }}/build/install"
+
+      - name: Configure installed-package consumer
+        run: >-
+          cmake -S tests/package-consumer
+          -B build/package-consumer
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+          -DCMAKE_PREFIX_PATH=${{ github.workspace }}/build/install
+
+      - name: Build installed-package consumer
+        run: cmake --build build/package-consumer --parallel
+
+      - name: Test installed-package consumer
+        run: ctest --test-dir build/package-consumer --output-on-failure
+
   vrm-schema:
     name: Official VRM JSON Schema
     runs-on: ubuntu-24.04
