@@ -20,7 +20,8 @@ Implement the VRM 1.0 extensions and closely related extension data needed to co
 - VRMC_materials_mtoon
 - VRMC_springBone_extended_collider
 - VRMC_springBone_limit
-- VRMC_materials_hdr_emissiveMultiplier
+- VRMC_materials_hdr_emissiveMultiplier (legacy archived extension, retained for compatibility)
+- KHR_materials_emissive_strength (current glTF replacement for HDR emissive multiplier)
 
 The implementation must follow the VRM Consortium specifications and schemas, not the behavior of an existing loader.
 
@@ -32,7 +33,7 @@ The implementation must follow the VRM Consortium specifications and schemas, no
 - Rendering, animation evaluation, spring simulation, constraints evaluation, or engine-specific scene management
 - Providing a complete glTF object model
 
-General glTF extensions may be represented where VRM extension data refers to them, but this library does not become a general glTF parser.
+Related glTF material extensions may be represented when they replace or complement VRM material extensions (currently KHR_materials_emissive_strength), but this library does not become a general glTF parser.
 
 ## 3. Language, dependencies, and distribution
 
@@ -62,7 +63,7 @@ Typical extension placement in glTF is:
 
 - VRMC_vrm and VRMC_springBone: root extensions
 - VRMC_node_constraint: individual nodes[*].extensions
-- VRMC_materials_mtoon and VRMC_materials_hdr_emissiveMultiplier: individual materials[*].extensions
+- VRMC_materials_mtoon, VRMC_materials_hdr_emissiveMultiplier, and KHR_materials_emissive_strength: individual materials[*].extensions
 - VRMC_springBone_extended_collider: the location defined by its specification, attached to the corresponding spring-bone collider extension data
 - VRMC_springBone_limit: individual SpringBone joint extension data
 
