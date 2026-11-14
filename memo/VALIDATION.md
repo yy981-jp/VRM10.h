@@ -35,7 +35,7 @@ The glTF schema revision is pinned:
 
 Both pins prevent upstream changes from silently changing CI results. Update pins deliberately and review their schema diffs together.
 
-Current automated schema fixtures cover VRMC_vrm and VRMC_springBone. As each extension is implemented, add its positive and negative fixtures and run the generalized schema validation script against that extension's schema.
+Automated schema fixtures cover VRMC_vrm, VRMC_springBone, VRMC_node_constraint, VRMC_materials_mtoon, VRMC_springBone_extended_collider, VRMC_springBone_limit, and VRMC_materials_hdr_emissiveMultiplier. The validator accepts an explicit schema filename for the archived HDR extension whose schema filename does not follow the usual .schema.json convention.
 
 The schema job uses jsonschema only in CI. It is not a runtime dependency of VRM10.h.
 
@@ -69,8 +69,8 @@ The fixture is a deliberately small glTF JSON document containing VRMC_vrm and a
 The external validator is useful but not exhaustive:
 
 - Its pinned source predates the current VRM specification revision.
-- Its registered VRM extension handlers include VRMC_vrm, VRMC_springBone, VRMC_node_constraint, and VRMC_materials_mtoon.
-- It must not be treated as proof of conformance for VRMC_springBone_extended_collider, VRMC_springBone_limit, or VRMC_materials_hdr_emissiveMultiplier unless support is verified in the pinned validator revision.
+- Its registered VRM extension handlers include VRMC_vrm, VRMC_springBone, VRMC_node_constraint, and VRMC_materials_mtoon. The model fixture exercises all four.
+- It must not be treated as proof of conformance for VRMC_springBone_extended_collider, VRMC_springBone_limit, or VRMC_materials_hdr_emissiveMultiplier; those are covered by official-schema and direct parser tests.
 - It is not the authority for the current official schemas.
 - Its Dart runtime and dependency graph are isolated to the external-validator CI job and are not dependencies of this C++ library.
 
@@ -83,7 +83,7 @@ A second historical project, saturday06/VRM-Validator, is a 2019 fork of Khronos
 The required CI jobs are:
 
 1. cpp: configure, compile, and run C++17 tests with GCC and Clang.
-2. vrm-schema: validate valid and intentionally invalid VRMC_vrm and VRMC_springBone fixtures against the pinned official VRM schemas and their pinned shared glTF schemas.
+2. vrm-schema: validate valid and intentionally invalid fixtures for all seven implemented VRM extension schemas against the pinned official schemas and their pinned shared glTF schemas.
 3. external-vrm-validator: build the pinned external validator, validate the minimal VRM-extension fixture, and upload its JSON report.
 
 A job should fail on:
