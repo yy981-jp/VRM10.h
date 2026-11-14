@@ -5,6 +5,7 @@
 
 #include <array>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace vrm10 {
