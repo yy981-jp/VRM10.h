@@ -518,7 +518,7 @@ void testVrmHierarchyAndMorphTargetValidation() {
 	check(validReport.empty(), "valid humanoid hierarchy and morph target reference should pass");
 
 	auto invalidMorph = parsed.value();
-	invalidMorph.expressions->custom.at("smile").morphTargetBinds[0].index = 1;
+	invalidMorph.expressions->custom.at("smile").morphTargetBinds[0].index = vrm10::MorphTargetIndex{1};
 	auto morphReport = vrm10::validate(invalidMorph, context);
 	bool foundMorphIndexIssue = false;
 	for (const auto& issue : morphReport.issues) {
