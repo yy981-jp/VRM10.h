@@ -477,6 +477,13 @@ void testMaterialsEmissiveStrength() {
 		{"emissiveStrength": -0.1}
 	)json"));
 	check(!negativeStrength, "negative KHR emissive strength should be rejected");
+
+	if (explicitStrength) {
+		vrm10::ValidationContext context;
+		check(vrm10::validate(explicitStrength.value(), context).empty(), "emissive strength should validate on a non-unlit material");
+		context.materialUsesUnlit = true;
+		check(vrm10::validate(explicitStrength.value(), context).hasErrors(), "KHR emissive strength must not coexist with KHR_materials_unlit");
+	}
 }
 
 void testExpressionSemanticParsing() {
