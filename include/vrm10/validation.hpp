@@ -6,8 +6,12 @@
 #include <vrm10/parser/spring_bone.hpp>
 #include <vrm10/parser/vrm.hpp>
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -45,22 +49,297 @@ struct ValidationReport {
 	}
 };
 
+
+namespace detail {
+
 struct ValidationContext {
 	std::size_t nodeCount{};
 	std::size_t materialCount{};
 	std::size_t imageCount{};
 	std::vector<std::optional<NodeIndex>> nodeParents;
 	std::size_t textureCount{};
-	// Alpha mode of the glTF material being validated alongside MToon.
 	GltfAlphaMode materialAlphaMode{GltfAlphaMode::Opaque};
-	// KHR_materials_emissive_strength must not be used with KHR_materials_unlit.
 	bool materialUsesUnlit{false};
-	// One entry per node when provided. nullopt means the node has no mesh.
 	std::vector<std::optional<std::size_t>> nodeMorphTargetCounts;
 };
 
+inline void addJsonIssue(
+	ValidationReport& report,
+	std::string code,
+	std::string path,
+	std::string message
+) {
+	report.issues.push_back({
+		ValidationSeverity::Error,
+		std::move(code),
+		std::move(path),
+		std::move(message)
+	});
+}
 
-namespace detail {
+inline bool readIndex(const nlohmann::json& value, std::uint32_t& result) {
+	if (value.is_number_unsigned()) {
+		const auto number = value.get<std::uint64_t>();
+		if (number > std::numeric_limits<std::uint32_t>::max()) return false;
+		result = static_cast<std::uint32_t>(number);
+		return true;
+	}
+	if (!value.is_number_integer()) return false;
+
+	const auto number = value.get<std::int64_t>();
+	if (number < 0 || static_cast<std::uint64_t>(number) > std::numeric_limits<std::uint32_t>::max()) {
+		return false;
+	}
+	result = static_cast<std::uint32_t>(number);
+	return true;
+}
+
+inline std::size_t arraySize(
+	const nlohmann::json& gltf,
+	std::string_view key,
+	ValidationReport& report
+) {
+	if (!gltf.is_object()) {
+		addJsonIssue(report, "gltf-not-object", "/", "The glTF document must be a JSON object.");
+		return 0;
+	}
+	const auto it = gltf.find(std::string(key));
+	if (it == gltf.end()) return 0;
+	if (!it->is_array()) {
+		addJsonIssue(
+			report,
+			"gltf-array-invalid-type",
+			childPath("", key),
+			"Expected a glTF array."
+		);
+		return 0;
+	}
+	return it->size();
+}
+
+inline void buildNodeContext(
+	const nlohmann::json& gltf,
+	ValidationContext& context,
+	ValidationReport& report,
+	bool includeMorphTargets
+) {
+	if (!gltf.is_object()) {
+		addJsonIssue(report, "gltf-not-object", "/", "The glTF document must be a JSON object.");
+		return;
+	}
+
+	const auto nodesIt = gltf.find("nodes");
+	if (nodesIt == gltf.end()) {
+		addJsonIssue(report, "gltf-array-missing", "/nodes", "The glTF nodes array is missing.");
+		return;
+	}
+	if (!nodesIt->is_array()) {
+		addJsonIssue(report, "gltf-array-invalid-type", "/nodes", "Expected a glTF nodes array.");
+		return;
+	}
+
+	const auto& nodes = *nodesIt;
+	context.nodeCount = nodes.size();
+	context.nodeParents.resize(context.nodeCount);
+	if (includeMorphTargets) context.nodeMorphTargetCounts.resize(context.nodeCount);
+
+	const nlohmann::json* meshes = nullptr;
+	if (includeMorphTargets) {
+		const auto meshesIt = gltf.find("meshes");
+		if (meshesIt != gltf.end()) {
+			if (!meshesIt->is_array()) {
+				addJsonIssue(report, "gltf-array-invalid-type", "/meshes", "Expected a glTF meshes array.");
+			} else {
+				meshes = &*meshesIt;
+			}
+		}
+	}
+
+	for (std::size_t parentIndex = 0; parentIndex < nodes.size(); ++parentIndex) {
+		const auto& node = nodes[parentIndex];
+		const std::string nodePath = childPath("/nodes", parentIndex);
+		if (!node.is_object()) {
+			addJsonIssue(report, "gltf-object-invalid-type", nodePath, "Expected a glTF node object.");
+			continue;
+		}
+
+		const auto childrenIt = node.find("children");
+		if (childrenIt != node.end()) {
+			const std::string childrenPath = childPath(nodePath, "children");
+			if (!childrenIt->is_array()) {
+				addJsonIssue(report, "gltf-array-invalid-type", childrenPath, "Expected a node children array.");
+			} else {
+				for (std::size_t childPosition = 0; childPosition < childrenIt->size(); ++childPosition) {
+					const auto& child = (*childrenIt)[childPosition];
+					const std::string childPathValue = childPath(childrenPath, childPosition);
+					std::uint32_t childIndex = 0;
+					if (!readIndex(child, childIndex)) {
+						addJsonIssue(report, "gltf-index-invalid", childPathValue, "Expected a non-negative 32-bit node index.");
+						continue;
+					}
+					if (childIndex >= context.nodeCount) {
+						addJsonIssue(report, "gltf-index-out-of-range", childPathValue, "Child node index is outside the glTF nodes array.");
+						continue;
+					}
+					if (context.nodeParents[childIndex]) {
+						addJsonIssue(report, "gltf-node-multiple-parents", childPathValue, "A glTF node must not have more than one parent.");
+						continue;
+					}
+					context.nodeParents[childIndex] = NodeIndex{static_cast<std::uint32_t>(parentIndex)};
+				}
+			}
+		}
+
+		if (!includeMorphTargets) continue;
+		const auto meshIt = node.find("mesh");
+		if (meshIt == node.end()) {
+			context.nodeMorphTargetCounts[parentIndex] = std::nullopt;
+			continue;
+		}
+
+		std::uint32_t meshIndex = 0;
+		const std::string meshPath = childPath(nodePath, "mesh");
+		if (!readIndex(*meshIt, meshIndex)) {
+			addJsonIssue(report, "gltf-index-invalid", meshPath, "Expected a non-negative 32-bit mesh index.");
+			continue;
+		}
+		if (!meshes) {
+			addJsonIssue(report, "gltf-mesh-array-missing", meshPath, "A node references a mesh but the glTF meshes array is missing or invalid.");
+			continue;
+		}
+		if (meshIndex >= meshes->size()) {
+			addJsonIssue(report, "gltf-index-out-of-range", meshPath, "Mesh index is outside the glTF meshes array.");
+			continue;
+		}
+
+		const auto& mesh = (*meshes)[meshIndex];
+		const std::string primitivesPath = childPath(childPath("/meshes", meshIndex), "primitives");
+		if (!mesh.is_object()) {
+			addJsonIssue(report, "gltf-object-invalid-type", childPath("/meshes", meshIndex), "Expected a glTF mesh object.");
+			continue;
+		}
+		const auto primitivesIt = mesh.find("primitives");
+		if (primitivesIt == mesh.end() || !primitivesIt->is_array() || primitivesIt->empty()) {
+			addJsonIssue(report, "gltf-mesh-primitives-invalid", primitivesPath, "Mesh primitives must be a non-empty array.");
+			continue;
+		}
+
+		std::optional<std::size_t> morphTargetCount;
+		bool validMorphTargetCount = true;
+		for (std::size_t primitiveIndex = 0; primitiveIndex < primitivesIt->size(); ++primitiveIndex) {
+			const auto& primitive = (*primitivesIt)[primitiveIndex];
+			const std::string primitivePath = childPath(primitivesPath, primitiveIndex);
+			if (!primitive.is_object()) {
+				addJsonIssue(report, "gltf-object-invalid-type", primitivePath, "Expected a glTF mesh primitive object.");
+				validMorphTargetCount = false;
+				continue;
+			}
+			const auto targetsIt = primitive.find("targets");
+			if (targetsIt != primitive.end() && !targetsIt->is_array()) {
+				addJsonIssue(report, "gltf-array-invalid-type", childPath(primitivePath, "targets"), "Expected a morph targets array.");
+				validMorphTargetCount = false;
+				continue;
+			}
+			const std::size_t count = targetsIt == primitive.end() ? 0 : targetsIt->size();
+			if (!morphTargetCount) {
+				morphTargetCount = count;
+			} else if (*morphTargetCount != count) {
+				addJsonIssue(report, "gltf-morph-target-count-mismatch", primitivesPath, "All primitives in a mesh must have the same morph target count.");
+				validMorphTargetCount = false;
+				break;
+			}
+		}
+		if (validMorphTargetCount && morphTargetCount) {
+			context.nodeMorphTargetCounts[parentIndex] = *morphTargetCount;
+		}
+	}
+}
+
+inline bool buildMaterialContext(
+	const nlohmann::json& gltf,
+	std::size_t materialIndex,
+	ValidationContext& context,
+	ValidationReport& report,
+	bool includeTextures,
+	bool checkUnlit
+) {
+	if (!gltf.is_object()) {
+		addJsonIssue(report, "gltf-not-object", "/", "The glTF document must be a JSON object.");
+		return false;
+	}
+	context.materialCount = arraySize(gltf, "materials", report);
+	const auto materialsIt = gltf.find("materials");
+	if (materialsIt == gltf.end() || !materialsIt->is_array()) {
+		addJsonIssue(
+			report,
+			"material-index-out-of-range",
+			childPath("/materials", materialIndex),
+			"Material index is outside the glTF materials array."
+		);
+		return false;
+	}
+	if (materialIndex >= materialsIt->size()) {
+		addJsonIssue(
+			report,
+			"material-index-out-of-range",
+			childPath("/materials", materialIndex),
+			"Material index is outside the glTF materials array."
+		);
+		return false;
+	}
+
+	const auto& material = (*materialsIt)[materialIndex];
+	const std::string materialPath = childPath("/materials", materialIndex);
+	if (!material.is_object()) {
+		addJsonIssue(report, "gltf-object-invalid-type", materialPath, "Expected a glTF material object.");
+		return false;
+	}
+
+	if (includeTextures) {
+		context.textureCount = arraySize(gltf, "textures", report);
+		const auto texturesIt = gltf.find("textures");
+		if (texturesIt != gltf.end() && !texturesIt->is_array()) return false;
+		const auto alphaModeIt = material.find("alphaMode");
+		if (alphaModeIt != material.end()) {
+			if (!alphaModeIt->is_string()) {
+				addJsonIssue(report, "gltf-alpha-mode-invalid-type", childPath(materialPath, "alphaMode"), "Expected a glTF alphaMode string.");
+				return false;
+			} else {
+				const auto alphaMode = alphaModeIt->get<std::string>();
+				if (alphaMode == "OPAQUE") context.materialAlphaMode = GltfAlphaMode::Opaque;
+				else if (alphaMode == "MASK") context.materialAlphaMode = GltfAlphaMode::Mask;
+				else if (alphaMode == "BLEND") context.materialAlphaMode = GltfAlphaMode::Blend;
+				else {
+					addJsonIssue(report, "gltf-alpha-mode-invalid-value", childPath(materialPath, "alphaMode"), "Unknown glTF alphaMode value.");
+					return false;
+				}
+			}
+		}
+	}
+
+	if (checkUnlit) {
+		const auto extensionsIt = material.find("extensions");
+		if (extensionsIt != material.end()) {
+			if (!extensionsIt->is_object()) {
+				addJsonIssue(report, "gltf-object-invalid-type", childPath(materialPath, "extensions"), "Expected a glTF material extensions object.");
+				return false;
+			} else {
+				context.materialUsesUnlit = extensionsIt->find("KHR_materials_unlit") != extensionsIt->end();
+			}
+		}
+	}
+	return true;
+}
+
+inline void appendIssues(ValidationReport& target, const ValidationReport& source) {
+	target.issues.insert(target.issues.end(), source.issues.begin(), source.issues.end());
+}
+
+inline void prefixIssuePaths(ValidationReport& report, const std::string& prefix) {
+	for (auto& issue : report.issues) {
+		issue.path = prefix + issue.path;
+	}
+}
 
 struct HumanBoneHierarchyEntry {
 	HumanBone bone;
@@ -161,7 +440,9 @@ inline bool isStrictAncestor(NodeIndex ancestor, NodeIndex descendant, const Val
 
 } // namespace detail
 
-inline ValidationReport validate(const Vrm& vrm, const ValidationContext& context) {
+namespace detail {
+
+inline ValidationReport validateVrmData(const Vrm& vrm, const ValidationContext& context) {
 	ValidationReport report;
 	auto addNodeIssue = [&](std::string path, NodeIndex node) {
 		if (node.value >= context.nodeCount) {
@@ -320,7 +601,7 @@ inline ValidationReport validate(const Vrm& vrm, const ValidationContext& contex
 
 
 
-inline ValidationReport validate(const SpringBone& springBone, const ValidationContext& context) {
+inline ValidationReport validateSpringBoneData(const SpringBone& springBone, const ValidationContext& context) {
 	ValidationReport report;
 	auto addNodeIssue = [&](const std::string& path, NodeIndex node) {
 		if (node.value >= context.nodeCount) {
@@ -493,7 +774,7 @@ inline ValidationReport validate(const SpringBone& springBone, const ValidationC
 }
 
 
-inline ValidationReport validate(const MaterialsMToon& mtoon, const ValidationContext& context) {
+inline ValidationReport validateMaterialsMToonData(const MaterialsMToon& mtoon, const ValidationContext& context) {
 	ValidationReport report;
 	auto checkTexture = [&](const std::string& path, const std::optional<TextureInfo>& texture) {
 		if (texture && texture->index.value >= context.textureCount) {
@@ -531,7 +812,7 @@ inline ValidationReport validate(const MaterialsMToon& mtoon, const ValidationCo
 	return report;
 }
 
-inline ValidationReport validate(
+inline ValidationReport validateMaterialsEmissiveStrengthData(
 	const MaterialsEmissiveStrength& emissiveStrength,
 	const ValidationContext& context
 ) {
@@ -547,7 +828,7 @@ inline ValidationReport validate(
 	return report;
 }
 
-inline ValidationReport validate(
+inline ValidationReport validateNodeConstraintsData(
 	const std::vector<std::optional<NodeConstraint>>& constraints,
 	std::size_t nodeCount
 ) {
@@ -619,6 +900,76 @@ inline ValidationReport validate(
 		}
 		for (const std::size_t node : path) state[node] = 2;
 	}
+	return report;
+}
+
+} // namespace detail
+
+inline ValidationReport validate(const Vrm& vrm, const nlohmann::json& gltf) {
+	ValidationReport report;
+	detail::ValidationContext context;
+	detail::buildNodeContext(gltf, context, report, true);
+	if (gltf.is_object()) {
+		context.materialCount = detail::arraySize(gltf, "materials", report);
+		context.imageCount = detail::arraySize(gltf, "images", report);
+	}
+	auto vrmReport = detail::validateVrmData(vrm, context);
+	detail::prefixIssuePaths(vrmReport, "/extensions/VRMC_vrm");
+	detail::appendIssues(report, vrmReport);
+	return report;
+}
+
+inline ValidationReport validate(const SpringBone& springBone, const nlohmann::json& gltf) {
+	ValidationReport report;
+	detail::ValidationContext context;
+	detail::buildNodeContext(gltf, context, report, false);
+	auto springBoneReport = detail::validateSpringBoneData(springBone, context);
+	detail::prefixIssuePaths(springBoneReport, "/extensions/VRMC_springBone");
+	detail::appendIssues(report, springBoneReport);
+	return report;
+}
+
+inline ValidationReport validate(
+	const MaterialsMToon& mtoon,
+	const nlohmann::json& gltf,
+	std::size_t materialIndex
+) {
+	ValidationReport report;
+	detail::ValidationContext context;
+	if (!detail::buildMaterialContext(gltf, materialIndex, context, report, true, false)) return report;
+	auto materialReport = detail::validateMaterialsMToonData(mtoon, context);
+	detail::prefixIssuePaths(
+		materialReport,
+		detail::childPath("/materials", materialIndex) + "/extensions/VRMC_materials_mtoon"
+	);
+	detail::appendIssues(report, materialReport);
+	return report;
+}
+
+inline ValidationReport validate(
+	const MaterialsEmissiveStrength& emissiveStrength,
+	const nlohmann::json& gltf,
+	std::size_t materialIndex
+) {
+	ValidationReport report;
+	detail::ValidationContext context;
+	if (!detail::buildMaterialContext(gltf, materialIndex, context, report, false, true)) return report;
+	auto materialReport = detail::validateMaterialsEmissiveStrengthData(emissiveStrength, context);
+	detail::prefixIssuePaths(materialReport, detail::childPath("/materials", materialIndex));
+	detail::appendIssues(report, materialReport);
+	return report;
+}
+
+inline ValidationReport validate(
+	const std::vector<std::optional<NodeConstraint>>& constraints,
+	const nlohmann::json& gltf
+) {
+	ValidationReport report;
+	if (gltf.is_object() && gltf.find("nodes") == gltf.end()) {
+		detail::addJsonIssue(report, "gltf-array-missing", "/nodes", "The glTF nodes array is missing.");
+	}
+	const std::size_t nodeCount = detail::arraySize(gltf, "nodes", report);
+	detail::appendIssues(report, detail::validateNodeConstraintsData(constraints, nodeCount));
 	return report;
 }
 

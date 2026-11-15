@@ -40,7 +40,7 @@ Related glTF material extensions may be represented when they replace or complem
 The project is considered complete for its declared responsibility when:
 
 - Each in-scope extension has a typed parser with specification defaults and structural/value checks.
-- Cross-reference checks use explicit caller-supplied glTF metadata and do not require a glTF loader.
+- Cross-reference checks receive the complete glTF JSON document and derive the required metadata internally; no particular glTF loader is required.
 - Positive and negative fixtures pass against pinned official schemas.
 - The pinned real VRM regression asset passes the library's parser and supported semantic checks under both GCC and Clang.
 - The installed CMake package works from an independent consumer project.
@@ -56,7 +56,7 @@ This completion definition does not include validating every general glTF 2.0 ru
 - No required dependency on TinyGLTF, cgltf, fastgltf, a renderer, or an engine.
 - MIT license.
 
-The core public API accepts nlohmann::json. A caller extracts the extension object from its chosen glTF loader and passes that JSON value to VRM10.h.
+The parser API accepts the JSON value of each extension at its glTF-defined location. The validation API accepts the parsed extension data together with the complete glTF JSON document, deriving cross-reference metadata internally. A caller extracts the extension JSON from its chosen glTF loader; the library does not depend on that loader.
 
 Optional adapters belong in separate headers and must not be included by the core umbrella header. The TinyGLTF adapter is an optional convenience utility only; users may write their own conversion layer.
 
@@ -66,7 +66,7 @@ Keep four concerns separate:
 
 1. JSON parsing converts one extension JSON object into typed C++ data.
 2. Structural validation checks required fields, JSON types, array lengths, enum values, and specification-level value constraints.
-3. Cross-reference validation checks indexes against caller-supplied glTF counts or context. When supplied, node-parent relationships may also be used for extension-specific hierarchy constraints.
+3. Cross-reference validation receives the complete glTF JSON document and derives the relevant array sizes, node-parent relationships, morph-target counts, and material properties internally. The library does not expose its derived validation context.
 4. Runtime interpretation belongs to the consuming application, not this library. The library does not evaluate node constraints, render MToon, or execute SpringBone simulation/limits.
 
 Extension parsers should be independently usable. A parser receives the JSON value of the extension itself, not a tinygltf::Model or the full glTF document.
@@ -106,7 +106,7 @@ Do not rely on partially initialized output objects or leave enum fields indeter
 
 Parsing may stop at the first structural error. Validation should be able to collect multiple independent issues in a ValidationReport, each with severity, code, path, and message.
 
-Keep parsing and validation callable independently. A caller may want to inspect parsed data before performing cross-reference checks.
+Keep parsing and validation callable independently. A caller may want to inspect parsed data before performing cross-reference checks. Public validate overloads accept the parsed target data and full glTF JSON; ValidationContext, if used internally, is not part of the public API.
 
 ## 7. Specification-first development
 

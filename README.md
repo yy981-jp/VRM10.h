@@ -86,14 +86,10 @@ The adapter converts TinyGLTF's JSON-like `Value` recursively. Binary values are
 
 ### Cross-reference validation
 
-Parsing checks the extension JSON structure and its field types. It does not know the containing glTF document's node, material, or image counts. Supply those counts separately to validate references:
+Parsing checks an extension JSON object's structure and field types. Cross-reference validation receives the typed extension data together with the complete glTF JSON document. VRM10.h derives node counts, parent relationships, mesh morph-target counts, material modes, and texture/image counts internally:
 
 ```cpp
-const auto report = vrm10::validate(vrm, {
-	model.nodes.size(),
-	model.materials.size(),
-	model.images.size()
-});
+const auto report = vrm10::validate(vrm, gltfJson);
 
 if (report.hasErrors()) {
 	for (const auto& issue : report.issues) {
@@ -101,6 +97,18 @@ if (report.hasErrors()) {
 	}
 }
 ```
+
+The public validation overloads are:
+
+- `validate(const Vrm&, const nlohmann::json&)`
+- `validate(const SpringBone&, const nlohmann::json&)`
+- `validate(const MaterialsMToon&, const nlohmann::json&, std::size_t materialIndex)`
+- `validate(const MaterialsEmissiveStrength&, const nlohmann::json&, std::size_t materialIndex)`
+- `validate(const std::vector<std::optional<NodeConstraint>>&, const nlohmann::json&)`
+
+Material validators need the index of the glTF material that owns the parsed extension. Node constraints remain node-indexed so dependency cycles can be checked across the complete node graph.
+
+Malformed glTF fields needed by a validation pass are reported through `ValidationReport`; callers do not construct a `ValidationContext`. The validation API checks VRM cross-references and the glTF metadata required for those checks. It is not a replacement for full glTF 2.0 schema validation.
 
 ## Current implementation status
 
@@ -132,15 +140,14 @@ if (!springBone) {
 const vrm10::SpringBone& data = springBone.value();
 ```
 
-Cross-reference and semantic validation uses metadata supplied through `ValidationContext`:
+Cross-reference and semantic validation derives the required metadata from the supplied glTF JSON document:
 
-- `nodeParents`: one optional parent index per glTF node; roots use `std::nullopt`. This enables Humanoid bone hierarchy checks and SpringBone joint/center-space checks.
-- `nodeMorphTargetCounts`: one optional morph-target count per node. `std::nullopt` means the node has no mesh; a value (including zero) means it has a mesh with that many morph targets. This validates first-person mesh annotations and Expression morph-target bindings.
-- `textureCount`: the glTF texture array size, used to validate MToon texture references.
-- `materialAlphaMode`: the glTF material's `OPAQUE`, `MASK`, or `BLEND` mode, used with `transparentWithZWrite` to validate MToon's render queue offset.
-- `materialUsesUnlit`: whether the same glTF material has `KHR_materials_unlit`, used to enforce the KHR emissive-strength incompatibility rule.
+- Node parent relationships enable Humanoid bone hierarchy checks and SpringBone joint/center-space checks.
+- Per-node morph-target counts validate first-person mesh annotations and Expression morph-target bindings.
+- Texture, material, and image array sizes validate typed references.
+- The selected material's `alphaMode` and `KHR_materials_unlit` extension are used for MToon render-queue and emissive-strength compatibility checks.
 
-The context vectors must contain exactly one entry per node for their corresponding checks to run. When validating MToon, set `materialAlphaMode` from the same glTF material. The caller extracts this information from its chosen glTF representation; VRM10.h does not parse the full glTF document. SpringBone physics and runtime Expression evaluation remain out of scope.
+Only the glTF fields required by the selected validation pass are inspected. Malformed fields are returned as `ValidationIssue` entries. SpringBone physics and runtime Expression evaluation remain out of scope.
 
 ### Other extension parsers
 
@@ -160,20 +167,18 @@ Node constraints are validated as a node-indexed array so source references and 
 ```cpp
 std::vector<std::optional<vrm10::NodeConstraint>> constraints(nodes.size());
 // Parse each node's VRMC_node_constraint and assign it to constraints[i].
-const auto report = vrm10::validate(constraints, nodes.size());
+const auto report = vrm10::validate(constraints, gltfJson);
 ```
 
-MToon texture indexes and material-mode-dependent render queue offsets are checked against glTF context:
+MToon texture indexes and material-mode-dependent render queue offsets are checked against the complete glTF JSON and the index of the material that owns the extension:
 
 ```cpp
-vrm10::ValidationContext context;
-context.textureCount = model.textures.size();
-const auto report = vrm10::validate(mtoon, context);
+const auto report = vrm10::validate(mtoon, gltfJson, materialIndex);
 ```
 
 The HDR emissive multiplier extension is archived and superseded by `KHR_materials_emissive_strength`. Both parsers are available: the former for compatibility with existing VRM assets, and the latter for current glTF materials. Validation also checks the latter's prohibition on materials using `KHR_materials_unlit`.
 
-For the stated VRM10.h responsibility, the parser, documented semantic checks, official-schema fixtures, and real-model regression test are in place. Semantic validation is intentionally limited to VRM extension rules and the glTF metadata supplied through `ValidationContext`; it is not a claim to validate every rule in the complete glTF 2.0 specification.
+For the stated VRM10.h responsibility, the parser, documented semantic checks, official-schema fixtures, and real-model regression test are in place. Semantic validation is intentionally limited to VRM extension rules and the glTF metadata required by those checks; it is not a claim to validate every rule in the complete glTF 2.0 specification.
 
 The implementation is not a general glTF parser, GLB loader, renderer, physics runtime, or constraint evaluator.
 
