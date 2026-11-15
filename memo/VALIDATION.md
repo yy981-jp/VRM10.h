@@ -9,7 +9,7 @@ VRM10.h uses independent validation layers because no single validator covers ev
 | C++ unit tests | Parser behavior, defaults, errors, indexes, regression cases | Our implementation contract |
 | Official JSON Schema | JSON structure, types, required fields, enums, array lengths, schema constraints | VRM Consortium schemas |
 | VRM asset validator | Full glTF/GLB structure, resource references, and supported VRM extension semantics | Independent implementation |
-| VRM10.h cross-reference validation | References against caller-supplied glTF counts/context, Humanoid bone hierarchy, SpringBone chain membership including skipped nodes, center-space restrictions, node-constraint dependency cycles, mesh/texture/material-mode references, and extension compatibility rules such as emissive-strength vs. unlit | Our public validation API |
+| VRM10.h cross-reference validation | References and semantic relationships checked against metadata derived from the supplied glTF JSON, including Humanoid hierarchy, SpringBone chain membership including skipped nodes, center-space restrictions, node-constraint dependency cycles, mesh/texture/material-mode references, and extension compatibility rules such as emissive-strength vs. unlit | Our public validation API |
 
 A pass in one layer does not imply a pass in another.
 
@@ -102,7 +102,7 @@ As the implementation grows:
 - Add one or more small JSON fixtures per extension.
 - Add invalid fixtures for missing fields, invalid enums, invalid array sizes, and out-of-range values.
 - Add model-level .gltf fixtures for cross-reference behavior.
-- Supply complete `nodeParents` and `nodeMorphTargetCounts` context arrays in semantic tests when checking node hierarchy, mesh presence, and morph target index validity.
+- Supply a complete glTF JSON document to public validation tests when checking node hierarchy, mesh presence, and morph target index validity. The library derives its internal validation metadata from that document.
 - Add one or more genuine .vrm GLB fixtures when container/resource integration is ready.
 - Keep fixtures minimal and document what each one is intended to prove.
 - Never rely on a validator-clean model alone; pair it with direct parser tests.
@@ -130,4 +130,4 @@ The C++ integration test and external validator also process the release asset:
 
 The binary is not vendored. CI downloads it and verifies the SHA-256 before testing. The pinned asset currently exercises 90 nodes, four SpringBone chains, the nested `VRMC_springBone_extended_collider` extension, one MToon material, one texture, and one image. `scripts/extract_glb_json.py` is a test-only utility that reads the GLB v2 header and JSON chunk; it does not load BIN data or become part of the public library API.
 
-`vrm10_asset_tests` uses the extracted JSON with nlohmann::json, invokes each VRM10.h parser for extensions present in the asset, builds `ValidationContext` from the glTF nodes/meshes/materials/textures/images arrays, and runs the cross-reference validators. The independent VRM Validator also runs on the original `.vrm` file.
+`vrm10_asset_tests` uses the extracted JSON with nlohmann::json, invokes each VRM10.h parser for extensions present in the asset, and passes the parsed typed data plus the complete glTF JSON to the cross-reference validators. The library derives its validation metadata internally. The independent VRM Validator also runs on the original `.vrm` file.

@@ -1,5 +1,6 @@
 #include <vrm10/vrm10.hpp>
 
+#include <cstddef>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -48,6 +49,69 @@ nlohmann::json validVrmJson() {
 	)json");
 }
 
+nlohmann::json makeGltf(std::size_t nodeCount = 0) {
+	nlohmann::json gltf = {
+		{"nodes", nlohmann::json::array()},
+		{"materials", nlohmann::json::array()},
+		{"images", nlohmann::json::array()},
+		{"textures", nlohmann::json::array()},
+		{"meshes", nlohmann::json::array()}
+	};
+	for (std::size_t index = 0; index < nodeCount; ++index) {
+		gltf["nodes"].push_back(nlohmann::json::object());
+	}
+	return gltf;
+}
+
+void setNodeParent(nlohmann::json& gltf, std::size_t child, std::size_t parent) {
+	auto& children = gltf["nodes"][parent]["children"];
+	if (!children.is_array()) children = nlohmann::json::array();
+	children.push_back(child);
+}
+
+nlohmann::json validAvatarGltf() {
+	auto gltf = makeGltf(15);
+	setNodeParent(gltf, 1, 0);
+	setNodeParent(gltf, 2, 1);
+	setNodeParent(gltf, 3, 0);
+	setNodeParent(gltf, 4, 3);
+	setNodeParent(gltf, 5, 4);
+	setNodeParent(gltf, 6, 0);
+	setNodeParent(gltf, 7, 6);
+	setNodeParent(gltf, 8, 7);
+	setNodeParent(gltf, 9, 1);
+	setNodeParent(gltf, 10, 9);
+	setNodeParent(gltf, 11, 10);
+	setNodeParent(gltf, 12, 1);
+	setNodeParent(gltf, 13, 12);
+	setNodeParent(gltf, 14, 13);
+	gltf["nodes"][2]["mesh"] = 0;
+	gltf["meshes"].push_back({
+		{"primitives", nlohmann::json::array({
+			nlohmann::json{{"targets", nlohmann::json::array({nlohmann::json::object()})}}
+		})}
+	});
+	gltf["images"].push_back(nlohmann::json::object());
+	return gltf;
+}
+
+nlohmann::json validSpringBoneGltf() {
+	auto gltf = makeGltf(4);
+	setNodeParent(gltf, 1, 0);
+	setNodeParent(gltf, 2, 1);
+	setNodeParent(gltf, 3, 2);
+	return gltf;
+}
+
+nlohmann::json materialGltf(std::size_t textureCount = 0, const std::string& alphaMode = "OPAQUE") {
+	auto gltf = makeGltf();
+	for (std::size_t index = 0; index < textureCount; ++index) {
+		gltf["textures"].push_back(nlohmann::json::object());
+	}
+	gltf["materials"].push_back({{"alphaMode", alphaMode}});
+	return gltf;
+}
+
 void testRequiredDataAndNodeZero() {
 	auto result = vrm10::parseVrm(validVrmJson());
 	check(result.hasValue(), "minimal valid VRM should parse");
@@ -61,7 +125,7 @@ void testRequiredDataAndNodeZero() {
 	if (result.value().meta.thumbnailImage) {
 		check(result.value().meta.thumbnailImage->value == 0, "image index zero must be valid");
 	}
-	const auto imageReport = vrm10::validate(result.value(), vrm10::ValidationContext{15, 0, 1});
+	const auto imageReport = vrm10::validate(result.value(), validAvatarGltf());
 	check(imageReport.empty(), "in-range thumbnail image index should validate");
 }
 
@@ -119,7 +183,9 @@ void testValidation() {
 	auto result = vrm10::parseVrm(validVrmJson());
 	check(result.hasValue(), "validation fixture should parse");
 	if (!result) return;
-	auto report = vrm10::validate(result.value(), vrm10::ValidationContext{14, 0, 0});
+	auto gltf = validAvatarGltf();
+	gltf["nodes"].erase(14);
+	auto report = vrm10::validate(result.value(), gltf);
 	check(report.hasErrors(), "out-of-range node reference should be reported");
 }
 
@@ -208,15 +274,8 @@ void testSpringBoneCrossReferenceValidation() {
 	check(parsed.hasValue(), "cross-reference fixture should parse");
 	if (!parsed) return;
 
-	vrm10::ValidationContext context;
-	context.nodeCount = 4;
-	context.nodeParents = {
-		std::nullopt,
-		vrm10::NodeIndex{0},
-		vrm10::NodeIndex{1},
-		vrm10::NodeIndex{2}
-	};
-	auto report = vrm10::validate(parsed.value(), context);
+	const auto gltf = validSpringBoneGltf();
+	auto report = vrm10::validate(parsed.value(), gltf);
 	check(report.empty(), "valid SpringBone references and ancestor relationships should pass validation");
 
 	auto invalid = parsed.value();
@@ -224,17 +283,17 @@ void testSpringBoneCrossReferenceValidation() {
 	invalid.colliderGroups[0].colliders[0] = vrm10::SpringColliderIndex{3};
 	invalid.springs[0].colliderGroups[0] = vrm10::SpringColliderGroupIndex{2};
 	invalid.springs[0].center = vrm10::NodeIndex{4};
-	auto invalidReport = vrm10::validate(invalid, context);
+	auto invalidReport = vrm10::validate(invalid, gltf);
 	check(invalidReport.hasErrors(), "out-of-range SpringBone references should be reported");
 
 	auto brokenChain = parsed.value();
 	brokenChain.springs[0].joints[1].node = vrm10::NodeIndex{0};
-	auto chainReport = vrm10::validate(brokenChain, context);
+	auto chainReport = vrm10::validate(brokenChain, gltf);
 	check(chainReport.hasErrors(), "non-descendant SpringBone joints should be reported");
 
 	auto duplicateChain = parsed.value();
 	duplicateChain.springs.push_back(duplicateChain.springs[0]);
-	auto duplicateReport = vrm10::validate(duplicateChain, context);
+	auto duplicateReport = vrm10::validate(duplicateChain, gltf);
 	check(duplicateReport.hasErrors(), "a node shared by multiple SpringChains should be reported");
 
 	auto skippedNodeOverlap = parsed.value();
@@ -242,7 +301,7 @@ void testSpringBoneCrossReferenceValidation() {
 	secondChain.joints.push_back(vrm10::SpringJoint{vrm10::NodeIndex{2}});
 	secondChain.center = vrm10::NodeIndex{2};
 	skippedNodeOverlap.springs.push_back(secondChain);
-	auto skippedNodeReport = vrm10::validate(skippedNodeOverlap, context);
+	auto skippedNodeReport = vrm10::validate(skippedNodeOverlap, gltf);
 	bool foundSkippedOverlap = false;
 	bool foundCenterOverlap = false;
 	for (const auto& issue : skippedNodeReport.issues) {
@@ -291,7 +350,8 @@ void testNodeConstraintParsingAndValidation() {
 	std::vector<std::optional<vrm10::NodeConstraint>> graph(3);
 	graph[0] = rotation.value();
 	graph[1] = roll.value();
-	auto validReport = vrm10::validate(graph, 3);
+	const auto gltf = makeGltf(3);
+	auto validReport = vrm10::validate(graph, gltf);
 	check(validReport.empty(), "acyclic in-range node constraints should validate");
 
 	graph[0] = vrm10::NodeConstraint{
@@ -302,17 +362,17 @@ void testNodeConstraintParsingAndValidation() {
 		"1.0",
 		vrm10::RotationConstraint{vrm10::NodeIndex{0}, 1.0f}
 	};
-	auto cycleReport = vrm10::validate(graph, 3);
+	auto cycleReport = vrm10::validate(graph, gltf);
 	check(cycleReport.hasErrors(), "circular node constraint dependencies should be reported");
 
 	graph[0] = roll.value();
 	graph[1].reset();
-	auto selfReport = vrm10::validate(graph, 3);
+	auto selfReport = vrm10::validate(graph, gltf);
 	check(selfReport.hasErrors(), "constraint source equal to destination should be reported");
 
 	auto shortGraph = graph;
 	shortGraph.pop_back();
-	auto sizeReport = vrm10::validate(shortGraph, 3);
+	auto sizeReport = vrm10::validate(shortGraph, gltf);
 	bool foundSizeMismatch = false;
 	for (const auto& issue : sizeReport.issues) {
 		if (issue.code == "constraint-array-size-mismatch") foundSizeMismatch = true;
@@ -376,9 +436,8 @@ void testSpringBoneNestedExtensions() {
 	auto tailLimit = vrm10::parseSpringBone(tailLimitJson);
 	check(tailLimit.hasValue(), "tail joint limit should remain parseable for diagnostics");
 	if (tailLimit) {
-		vrm10::ValidationContext context;
-		context.nodeCount = 4;
-		auto report = vrm10::validate(tailLimit.value(), context);
+		const auto gltf = validSpringBoneGltf();
+		auto report = vrm10::validate(tailLimit.value(), gltf);
 		bool foundWarning = false;
 		for (const auto& issue : report.issues) {
 			if (issue.code == "spring-limit-on-tail-ignored" && issue.severity == vrm10::ValidationSeverity::Warning) {
@@ -410,11 +469,10 @@ void testMToonAndHdrParsing() {
 			check(mtoon.value().shadeMultiplyTexture->texCoord.value == 0, "texture coordinate set should default to zero");
 		}
 		check(mtoon.value().shadingShiftTexture->scale == -0.2f, "shading shift texture scale should be preserved");
-		vrm10::ValidationContext context;
-		context.textureCount = 2;
-		check(vrm10::validate(mtoon.value(), context).empty(), "in-range MToon texture references should validate");
-		context.textureCount = 1;
-		check(vrm10::validate(mtoon.value(), context).hasErrors(), "out-of-range MToon texture references should be reported");
+		auto gltf = materialGltf(2);
+		check(vrm10::validate(mtoon.value(), gltf, 0).empty(), "in-range MToon texture references should validate");
+		gltf["textures"].erase(1);
+		check(vrm10::validate(mtoon.value(), gltf, 0).hasErrors(), "out-of-range MToon texture references should be reported");
 	}
 
 	auto badMtoon = vrm10::parseMaterialsMToon(nlohmann::json::parse(R"json(
@@ -427,10 +485,10 @@ void testMToonAndHdrParsing() {
 	)json"));
 	check(blendBack.hasValue(), "MToon render queue offset should parse before material-mode validation");
 	if (blendBack) {
-		vrm10::ValidationContext context;
-		check(vrm10::validate(blendBack.value(), context).hasErrors(), "negative queue offset is invalid for OPAQUE material");
-		context.materialAlphaMode = vrm10::GltfAlphaMode::Blend;
-		check(vrm10::validate(blendBack.value(), context).empty(), "negative queue offset is valid for BLEND without Z write");
+		auto gltf = materialGltf();
+		check(vrm10::validate(blendBack.value(), gltf, 0).hasErrors(), "negative queue offset is invalid for OPAQUE material");
+		gltf["materials"][0]["alphaMode"] = "BLEND";
+		check(vrm10::validate(blendBack.value(), gltf, 0).empty(), "negative queue offset is valid for BLEND without Z write");
 	}
 
 	auto blendFront = vrm10::parseMaterialsMToon(nlohmann::json::parse(R"json(
@@ -438,11 +496,10 @@ void testMToonAndHdrParsing() {
 	)json"));
 	check(blendFront.hasValue(), "MToon BLEND Z-write queue offset should parse");
 	if (blendFront) {
-		vrm10::ValidationContext context;
-		context.materialAlphaMode = vrm10::GltfAlphaMode::Blend;
-		check(vrm10::validate(blendFront.value(), context).empty(), "positive queue offset is valid for BLEND with Z write");
-		context.materialAlphaMode = vrm10::GltfAlphaMode::Mask;
-		check(vrm10::validate(blendFront.value(), context).hasErrors(), "nonzero queue offset is invalid for MASK material");
+		auto gltf = materialGltf(0, "BLEND");
+		check(vrm10::validate(blendFront.value(), gltf, 0).empty(), "positive queue offset is valid for BLEND with Z write");
+		gltf["materials"][0]["alphaMode"] = "MASK";
+		check(vrm10::validate(blendFront.value(), gltf, 0).hasErrors(), "nonzero queue offset is invalid for MASK material");
 	}
 
 	auto hdr = vrm10::parseHdrEmissiveMultiplier(nlohmann::json::parse(R"json(
@@ -479,10 +536,10 @@ void testMaterialsEmissiveStrength() {
 	check(!negativeStrength, "negative KHR emissive strength should be rejected");
 
 	if (explicitStrength) {
-		vrm10::ValidationContext context;
-		check(vrm10::validate(explicitStrength.value(), context).empty(), "emissive strength should validate on a non-unlit material");
-		context.materialUsesUnlit = true;
-		check(vrm10::validate(explicitStrength.value(), context).hasErrors(), "KHR emissive strength must not coexist with KHR_materials_unlit");
+		auto gltf = materialGltf();
+		check(vrm10::validate(explicitStrength.value(), gltf, 0).empty(), "emissive strength should validate on a non-unlit material");
+		gltf["materials"][0]["extensions"]["KHR_materials_unlit"] = nlohmann::json::object();
+		check(vrm10::validate(explicitStrength.value(), gltf, 0).hasErrors(), "KHR emissive strength must not coexist with KHR_materials_unlit");
 	}
 }
 
@@ -542,29 +599,8 @@ void testVrmHierarchyAndMorphTargetValidation() {
 	check(parsed.hasValue(), "VRM semantic validation fixture should parse");
 	if (!parsed) return;
 
-	vrm10::ValidationContext context;
-	context.nodeCount = 15;
-	context.imageCount = 1;
-	context.nodeParents = {
-		std::nullopt,
-		vrm10::NodeIndex{0},
-		vrm10::NodeIndex{1},
-		vrm10::NodeIndex{0},
-		vrm10::NodeIndex{3},
-		vrm10::NodeIndex{4},
-		vrm10::NodeIndex{0},
-		vrm10::NodeIndex{6},
-		vrm10::NodeIndex{7},
-		vrm10::NodeIndex{1},
-		vrm10::NodeIndex{9},
-		vrm10::NodeIndex{10},
-		vrm10::NodeIndex{1},
-		vrm10::NodeIndex{12},
-		vrm10::NodeIndex{13}
-	};
-	context.nodeMorphTargetCounts.resize(context.nodeCount);
-	context.nodeMorphTargetCounts[2] = 1;
-	auto validReport = vrm10::validate(parsed.value(), context);
+	auto gltf = validAvatarGltf();
+	auto validReport = vrm10::validate(parsed.value(), gltf);
 	check(validReport.empty(), "valid humanoid hierarchy and morph target reference should pass");
 	check(
 		parsed.value().expressions->custom.at("smile").morphTargetBinds[0].index.value == 0,
@@ -573,16 +609,16 @@ void testVrmHierarchyAndMorphTargetValidation() {
 
 	auto invalidMorph = parsed.value();
 	invalidMorph.expressions->custom.at("smile").morphTargetBinds[0].index = vrm10::MorphTargetIndex{1};
-	auto morphReport = vrm10::validate(invalidMorph, context);
+	auto morphReport = vrm10::validate(invalidMorph, gltf);
 	bool foundMorphIndexIssue = false;
 	for (const auto& issue : morphReport.issues) {
 		if (issue.code == "morph-target-index-out-of-range") foundMorphIndexIssue = true;
 	}
 	check(foundMorphIndexIssue, "out-of-range morph target index should be reported");
 
-	auto nodeWithoutMesh = context;
-	nodeWithoutMesh.nodeMorphTargetCounts[2] = std::nullopt;
-	auto noMeshReport = vrm10::validate(parsed.value(), nodeWithoutMesh);
+	auto noMeshGltf = gltf;
+	noMeshGltf["nodes"][2].erase("mesh");
+	auto noMeshReport = vrm10::validate(parsed.value(), noMeshGltf);
 	bool foundNoMeshIssue = false;
 	for (const auto& issue : noMeshReport.issues) {
 		if (issue.code == "morph-target-node-has-no-mesh") foundNoMeshIssue = true;
@@ -596,15 +632,16 @@ void testVrmHierarchyAndMorphTargetValidation() {
 		vrm10::FirstPersonType::Both
 	});
 	annotatedVrm.firstPerson = std::move(firstPerson);
-	auto firstPersonReport = vrm10::validate(annotatedVrm, context);
+	auto firstPersonReport = vrm10::validate(annotatedVrm, gltf);
 	bool foundFirstPersonNoMeshIssue = false;
 	for (const auto& issue : firstPersonReport.issues) {
 		if (issue.code == "first-person-node-has-no-mesh") foundFirstPersonNoMeshIssue = true;
 	}
 	check(foundFirstPersonNoMeshIssue, "first-person annotation to node without mesh should be reported");
 
-	auto invalidHierarchy = context;
-	invalidHierarchy.nodeParents[2] = vrm10::NodeIndex{0};
+	auto invalidHierarchy = gltf;
+	invalidHierarchy["nodes"][1]["children"] = nlohmann::json::array({9, 12});
+	setNodeParent(invalidHierarchy, 2, 0);
 	auto hierarchyReport = vrm10::validate(parsed.value(), invalidHierarchy);
 	bool foundHierarchyIssue = false;
 	for (const auto& issue : hierarchyReport.issues) {
@@ -614,11 +651,9 @@ void testVrmHierarchyAndMorphTargetValidation() {
 
 	auto missingRequiredParent = parsed.value();
 	missingRequiredParent.humanoid[vrm10::HumanBone::upperChest] = vrm10::NodeIndex{15};
-	auto expandedContext = context;
-	expandedContext.nodeCount = 16;
-	expandedContext.nodeParents.resize(16);
-	expandedContext.nodeMorphTargetCounts.resize(16);
-	auto parentReport = vrm10::validate(missingRequiredParent, expandedContext);
+	auto expandedGltf = gltf;
+	expandedGltf["nodes"].push_back(nlohmann::json::object());
+	auto parentReport = vrm10::validate(missingRequiredParent, expandedGltf);
 	bool foundMissingParentIssue = false;
 	for (const auto& issue : parentReport.issues) {
 		if (issue.code == "missing-humanoid-parent-bone") foundMissingParentIssue = true;
@@ -652,6 +687,23 @@ void testVrmHierarchyAndMorphTargetValidation() {
 	check(!negativeScaleResult, "negative LookAt output scale should be rejected");
 }
 
+void testMalformedGltfValidationInput() {
+	auto parsed = vrm10::parseVrm(validVrmJson());
+	check(parsed.hasValue(), "malformed glTF test fixture should parse");
+	if (!parsed) return;
+
+	auto gltf = validAvatarGltf();
+	gltf["nodes"][0]["children"] = "not-an-array";
+	const auto report = vrm10::validate(parsed.value(), gltf);
+	bool foundInvalidChildren = false;
+	for (const auto& issue : report.issues) {
+		if (issue.code == "gltf-array-invalid-type" && issue.path == "/nodes/0/children") {
+			foundInvalidChildren = true;
+		}
+	}
+	check(foundInvalidChildren, "invalid glTF JSON fields should be returned as validation issues");
+}
+
 } // namespace
 
 int main() {
@@ -662,6 +714,7 @@ int main() {
 	testValidation();
 	testExpressionSemanticParsing();
 	testVrmHierarchyAndMorphTargetValidation();
+	testMalformedGltfValidationInput();
 	testSpringBoneParsingAndDefaults();
 	testSpringBoneInvalidInput();
 	testSpringBoneCrossReferenceValidation();
