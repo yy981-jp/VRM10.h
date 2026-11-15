@@ -53,8 +53,8 @@ void testRequiredDataAndNodeZero() {
 	check(result.hasValue(), "minimal valid VRM should parse");
 	if (!result) return;
 	check(result.value().specVersion == "1.0", "specVersion should be preserved");
-	check(result.value().humanoid[vrm10::HumanBone::Hips].has_value(), "hips should be assigned");
-	check(result.value().humanoid[vrm10::HumanBone::Hips]->value == 0, "node index zero must be valid");
+	check(result.value().humanoid[vrm10::HumanBone::hips].has_value(), "hips should be assigned");
+	check(result.value().humanoid[vrm10::HumanBone::hips]->value == 0, "node index zero must be valid");
 	check(result.value().meta.avatarPermission == vrm10::AvatarPermission::OnlyAuthor, "avatarPermission default should be applied");
 	check(result.value().meta.commercialUsage == vrm10::CommercialUsage::PersonalNonProfit, "commercialUsage default should be applied");
 	check(result.value().meta.thumbnailImage.has_value(), "thumbnailImage should be parsed");
@@ -613,7 +613,7 @@ void testVrmHierarchyAndMorphTargetValidation() {
 	check(foundHierarchyIssue, "invalid humanoid parent-child relationship should be reported");
 
 	auto missingRequiredParent = parsed.value();
-	missingRequiredParent.humanoid[vrm10::HumanBone::UpperChest] = vrm10::NodeIndex{15};
+	missingRequiredParent.humanoid[vrm10::HumanBone::upperChest] = vrm10::NodeIndex{15};
 	auto expandedContext = context;
 	expandedContext.nodeCount = 16;
 	expandedContext.nodeParents.resize(16);
