@@ -440,6 +440,8 @@ inline bool isStrictAncestor(NodeIndex ancestor, NodeIndex descendant, const Val
 
 } // namespace detail
 
+namespace detail {
+
 inline ValidationReport validateVrmData(const Vrm& vrm, const ValidationContext& context) {
 	ValidationReport report;
 	auto addNodeIssue = [&](std::string path, NodeIndex node) {
